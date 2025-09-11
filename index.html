@@ -7,33 +7,23 @@
 <body>
   <h1>Budget Tracker Test</h1>
 
-  <!-- Load your Supabase client once -->
   <script type="module">
     import { supabase } from './supabaseClient.js';
 
-    // Simple test query to verify connection
-    const { data, error } = await supabase.from('YOUR_TABLE').select('*').limit(1);
-    console.log({ data, error });
-  </script>
-<script type="module">
-  import { supabase } from './supabaseClient.js';
+    // 1) Simple test query (replace YOUR_TABLE with a real public table)
+    const { data: testData, error: testError } =
+      await supabase.from('YOUR_TABLE').select('*').limit(1);
+    console.log('Test query →', { testData, testError });
 
-  // Fetch all employer values from the paychecks table
-  async function getEmployers() {
-    const { data, error } = await supabase
-      .from('paychecks')
-      .select('employer'); // <-- specify the column you want
+    // 2) Employers from paychecks table
+    const { data: employers, error: employersError } =
+      await supabase.from('paychecks').select('employer');
 
-    if (error) {
-      console.error('Error fetching employers:', error.message);
+    if (employersError) {
+      console.error('Error fetching employers:', employersError.message);
     } else {
-      console.log('Employers:', data);
+      console.log('Employers:', employers);
     }
-  }
-
-  getEmployers();
-</script>
-
-  
+  </script>
 </body>
 </html>
