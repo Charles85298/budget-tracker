@@ -5,9 +5,9 @@
   <title>Budget Tracker – Email/Password + REQUIRED MFA (TOTP)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: system-ui, Arial; max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
+    body { font-family: system-ui, Arial; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
     h2 { margin-top: 1.5rem; }
-    form { display: grid; gap: 8px; max-width: 440px; }
+    form { display: grid; gap: 8px; max-width: 460px; }
     input, button { padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; }
     button { cursor: pointer; }
     button:disabled { opacity: .6; cursor: not-allowed; }
@@ -18,7 +18,7 @@
     pre { background:#f6f6f6; padding:10px; border-radius:8px; overflow:auto; }
     .secret { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; background:#fff; padding:6px 8px; border:1px dashed #bbb; border-radius:8px; display:inline-block; }
     img.qr { width: 220px; height: 220px; border: 1px solid #ddd; border-radius: 8px; }
-    .gate { opacity: .4; pointer-events: none; filter: grayscale(0.2); }
+    .gate { opacity: .45; pointer-events: none; filter: grayscale(0.2); }
   </style>
 </head>
 <body>
@@ -77,7 +77,7 @@
 
     <div id="mfa-enroll-block">
       <h3>Enable MFA (TOTP)</h3>
-      <button id="mfa-start">Generate QR / Setup key</button>
+      <button id="mfa-start" type="button">Generate QR / Setup key</button>
 
       <div id="mfa-enroll-ui" class="hide">
         <div class="row">
@@ -89,7 +89,7 @@
         </div>
         <div class="row">
           <label>6-digit code <input id="mfa-code" type="text" inputmode="numeric" pattern="\\d{6}" placeholder="123456" /></label>
-          <button id="mfa-verify">Verify & Activate</button>
+          <button id="mfa-verify" type="button">Verify & Activate</button>
         </div>
         <div id="mfa-enroll-msg"></div>
       </div>
@@ -108,16 +108,19 @@
     <p>Enter the 6-digit code from your authenticator app.</p>
     <div class="row">
       <input id="mfa-login-code" type="text" inputmode="numeric" pattern="\\d{6}" placeholder="123456" />
-      <button id="mfa-login-verify">Verify</button>
+      <button id="mfa-login-verify" type="button">Verify</button>
     </div>
     <div id="mfa-login-msg"></div>
   </div>
 
-  <!-- Gate all app content below; it stays disabled until MFA enabled -->
+  <!-- GATED APP CONTENT -->
   <div id="app-gated" class="gate">
     <div class="card">
-      <h2>App Content (example placeholder)</h2>
-      <p>This section is disabled until MFA is enabled for your account.</p>
+      <h2>Paychecks</h2>
+      <div class="row">
+        <button id="read" type="button">Load latest</button>
+      </div>
+      <pre id="out"></pre>
     </div>
   </div>
 
@@ -129,7 +132,7 @@
   <script type="module">
     import { supabase } from './supabaseClient.js';
 
-    // --------- Elements
+    // ===== Elements
     const statusEl = document.getElementById('status');
     const logEl = document.getElementById('log');
 
@@ -138,8 +141,8 @@
     const signoutBtn = document.getElementById('signout');
 
     const signupForm = document.getElementById('signup-form');
-    const signinForm = document.getElementById('signin-form');
     const signupMsg = document.getElementById('signup-msg');
+    const signinForm = document.getElementById('signin-form');
     const signinMsg = document.getElementById('signin-msg');
 
     const forgotBtn = document.getElementById('forgot-btn');
@@ -151,6 +154,7 @@
     const recoveryForm = document.getElementById('recovery-form');
     const recoveryMsg = document.getElementById('recovery-msg');
 
+    // MFA UI
     const mfaCard = document.getElementById('mfa-card');
     const mfaStatus = document.getElementById('mfa-status');
     const mfaEnrollBlock = document.getElementById('mfa-enroll-block');
@@ -170,21 +174,25 @@
     const mfaLoginVerifyBtn = document.getElementById('mfa-login-verify');
     const mfaLoginMsg = document.getElementById('mfa-login-msg');
 
+    // App
     const appGated = document.getElementById('app-gated');
+    const readBtn = document.getElementById('read');
+    const outEl = document.getElementById('out');
 
-    // --------- State
-    const REQUIRE_MFA = true; // hard block
+    // ===== State
+    const REQUIRE_MFA = true;
     let pendingMfa = { factorId: null, challengeId: null };
     let enrollFactorId = null;
 
-    // --------- Helpers
+    // ===== Helpers
     const log = (label, val) => {
       const msg = `${label}: ${typeof val === 'string' ? val : JSON.stringify(val, null, 2)}`;
-      logEl.textContent += msg + "\n\n";
+      logEl.textContent += msg + "\\n\\n";
       console.log(label, val);
     };
     const gateApp = (blocked) => {
-      if (blocked) appGated.classList.add('gate'); else appGated.classList.remove('gate');
+      if (blocked) appGated.classList.add('gate');
+      else appGated.classList.remove('gate');
     };
     const setSignedIn = (email) => {
       statusEl.textContent = `Signed in as: ${email}`;
@@ -205,19 +213,20 @@
       gateApp(true);
     };
 
-    // --------- Redirect handling (confirm/recovery/oauth)
+    // ===== Redirect handling (email confirm / recovery)
     async function handleRedirect() {
       const href = location.href;
       log('URL on load', href);
       if (href.includes('code=') || href.includes('access_token=')) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(href);
-        if (error) log('exchangeCodeForSession error', error.message); else log('exchangeCodeForSession data', data);
+        if (error) log('exchangeCodeForSession error', error.message);
+        else log('exchangeCodeForSession data', data);
         history.replaceState({}, document.title, '/budget-tracker/');
       }
     }
     await handleRedirect();
 
-    // --------- Session reflection
+    // ===== Session reflection
     async function refreshSession() {
       const { data: { session }, error } = await supabase.auth.getSession();
       log('getSession error', error ?? 'none');
@@ -231,31 +240,36 @@
     }
     await refreshSession();
 
-    supabase.auth.onAuthStateChange((event, session) => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
       log('onAuthStateChange', { event, user: session?.user ?? null });
       if (session?.user?.email) {
         setSignedIn(session.user.email);
-        enforceMfa();
+        await enforceMfa();
       } else {
         setSignedOut();
       }
+      if (event === 'PASSWORD_RECOVERY') {
+        signinCard.classList.add('hide');
+        signupCard.classList.add('hide');
+        forgotCard.classList.add('hide');
+        recoveryCard.classList.remove('hide');
+      }
     });
 
-    // --------- Enforce MFA (Option B – hard requirement)
+    // ===== Enforce MFA (hard requirement)
     async function enforceMfa() {
       const { data, error } = await supabase.auth.mfa.listFactors();
       log('listFactors', error ?? data);
 
-      const totp = data?.totp ?? [];
-      if (totp.length) {
-        // MFA enabled → allow app
-        mfaStatus.textContent = `MFA enabled (${totp.length} TOTP factor${totp.length>1?'s':''})`;
+      const totp = (data?.totp ?? []).filter(f => f.status === 'verified');
+      if (totp.length > 0) {
+        mfaStatus.textContent = `MFA enabled (${totp.length} TOTP factor${totp.length > 1 ? 's' : ''})`;
         mfaEnrollBlock.classList.add('hide');
         mfaAlreadyBlock.classList.remove('hide');
-        mfaFactorsDiv.textContent = totp.map(f => `• ${f.friendly_name || 'TOTP'} (id: ${f.id})`).join('\n') || 'TOTP enrolled.';
-        gateApp(false);
+        mfaFactorsDiv.textContent = totp.map(f => `• TOTP (id: ${f.id})`).join('\\n') || 'TOTP enrolled.';
+        gateApp(false); // UNLOCK APP
       } else {
-        // MFA missing → block app and force setup
+        // No verified factor → lock app and push user through enrollment
         gateApp(true);
         mfaAlreadyBlock.classList.add('hide');
         mfaEnrollBlock.classList.remove('hide');
@@ -263,13 +277,12 @@
         mfaStatus.classList.add('err');
         mfaCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         if (REQUIRE_MFA && mfaEnrollUI.classList.contains('hide')) {
-          // auto-generate provisioning info to speed up setup
-          await startEnroll();
+          await startEnroll(); // auto-generate QR + secret
         }
       }
     }
 
-    // --------- Start TOTP enroll (helper so we can auto-trigger)
+    // ===== Start TOTP enroll
     async function startEnroll() {
       mfaEnrollMsg.textContent = 'Generating…';
       const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
@@ -277,8 +290,8 @@
       log('mfa.enroll', data);
 
       enrollFactorId = data.id;
-      mfaQR.src = data.totp.qr_code;            // PNG data URL
-      mfaSecret.textContent = data.totp.secret;  // Base32
+      mfaQR.src = data.totp.qr_code;           // PNG data URL
+      mfaSecret.textContent = data.totp.secret; // Base32
       const user = (await supabase.auth.getUser()).data?.user;
       const issuer = encodeURIComponent('Budget Tracker');
       const account = encodeURIComponent(user?.email || 'user');
@@ -288,11 +301,9 @@
       mfaEnrollUI.classList.remove('hide');
       mfaEnrollMsg.textContent = 'Scan QR or tap link / enter setup key, then enter the 6-digit code.';
     }
-
-    // Button to start enroll manually
     document.getElementById('mfa-start').addEventListener('click', startEnroll);
 
-    // Verify TOTP and activate factor
+    // ===== Verify and activate factor
     mfaVerifyBtn.addEventListener('click', async () => {
       mfaEnrollMsg.textContent = 'Verifying…';
       const code = mfaCode.value.trim();
@@ -313,11 +324,11 @@
         mfaEnrollUI.classList.add('hide');
         mfaCode.value = '';
         enrollFactorId = null;
-        await enforceMfa();
+        await enforceMfa(); // re-check and unlock app
       }
     });
 
-    // --------- Sign up
+    // ===== Sign up
     signupForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       signupMsg.textContent = '...';
@@ -338,7 +349,7 @@
       }
     });
 
-    // --------- Sign in (handle MFA-required when already enrolled)
+    // ===== Sign in (handles MFA-required case)
     signinForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       signinMsg.textContent = '...';
@@ -353,11 +364,11 @@
           signinMsg.textContent = 'MFA required: enter your 6-digit code.';
           const lf = await supabase.auth.mfa.listFactors();
           log('listFactors (after mfa_required)', lf);
-          const firstTotp = lf?.data?.totp?.[0];
-          if (!firstTotp) { signinMsg.textContent = 'MFA required but no TOTP factor found.'; return; }
-          const ch = await supabase.auth.mfa.challenge({ factorId: firstTotp.id });
+          const firstVerified = (lf?.data?.totp ?? []).find(f => f.status === 'verified');
+          if (!firstVerified) { signinMsg.textContent = 'MFA required but no verified TOTP factor found.'; return; }
+          const ch = await supabase.auth.mfa.challenge({ factorId: firstVerified.id });
           if (ch.error) { signinMsg.textContent = 'Error starting MFA challenge: ' + ch.error.message; return; }
-          pendingMfa = { factorId: firstTotp.id, challengeId: ch.data.id };
+          pendingMfa = { factorId: firstVerified.id, challengeId: ch.data.id };
           mfaLoginCard.classList.remove('hide');
         } else {
           signinMsg.textContent = 'Error: ' + error.message;
@@ -369,7 +380,7 @@
       }
     });
 
-    // --------- Verify MFA during login
+    // ===== Verify MFA during login
     mfaLoginVerifyBtn.addEventListener('click', async () => {
       mfaLoginMsg.textContent = 'Verifying…';
       const code = mfaLoginCode.value.trim();
@@ -391,7 +402,7 @@
       }
     });
 
-    // --------- Password reset
+    // ===== Password reset
     forgotBtn.addEventListener('click', () => forgotCard.classList.toggle('hide'));
     forgotForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -412,21 +423,23 @@
       else { recoveryMsg.textContent = 'Password updated. You are signed in.'; log('updateUser (password)', data); await refreshSession(); }
     });
 
-    // --------- Sign out
+    // ===== Sign out
     signoutBtn.addEventListener('click', async () => {
       const { error } = await supabase.auth.signOut();
       if (error) log('signOut error', error.message);
       setSignedOut();
     });
 
-    // If Supabase flags password recovery via auth event, show the recovery card
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        signinCard.classList.add('hide');
-        signupCard.classList.add('hide');
-        forgotCard.classList.add('hide');
-        recoveryCard.classList.remove('hide');
-      }
+    // ===== Paychecks viewer (inside gated area)
+    readBtn?.addEventListener('click', async () => {
+      outEl.textContent = 'Loading…';
+      const { data, error } = await supabase
+        .from('paychecks')
+        .select('paycheck_id, employer, pay_date, net_amount')
+        .order('pay_date', { ascending: false })
+        .limit(50);
+      outEl.textContent = error ? `Error: ${error.message}` : JSON.stringify(data, null, 2);
+      log('read paychecks', error ?? data);
     });
   </script>
 </body>
