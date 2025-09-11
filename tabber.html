@@ -3,8 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile Tab Navigation</title>
+    <title>Modern Mobile Tab Navigation</title>
     <style>
+        :root {
+            /* Light theme colors */
+            --primary-color: #007bff;
+            --primary-light: #66b3ff;
+            --primary-dark: #0056b3;
+            --background: #f5f5f5;
+            --surface: #ffffff;
+            --text-primary: #1c1c1e;
+            --text-secondary: #8e8e93;
+            --tab-bar-bg: #2c2c2e;
+            --tab-inactive: rgba(255, 255, 255, 0.6);
+            --tab-active: #ffffff;
+            --divider: rgba(255, 255, 255, 0.2);
+            --shadow: rgba(0, 0, 0, 0.15);
+        }
+
+        [data-theme="dark"] {
+            /* Dark theme colors */
+            --background: #000000;
+            --surface: #1c1c1e;
+            --text-primary: #ffffff;
+            --text-secondary: #8e8e93;
+            --tab-bar-bg: #1c1c1e;
+            --tab-inactive: rgba(255, 255, 255, 0.5);
+            --tab-active: #ffffff;
+            --divider: rgba(255, 255, 255, 0.15);
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,9 +42,33 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
+            background: var(--background);
+            color: var(--text-primary);
             height: 100vh;
             overflow: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Theme toggle button */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--surface);
+            border: 1px solid var(--divider);
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+            z-index: 1001;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .theme-toggle:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--shadow);
         }
 
         /* Main content area */
@@ -29,38 +82,42 @@
             flex: 1;
             overflow-y: auto;
             padding: 20px;
-            padding-bottom: 80px; /* Space for tab bar */
+            padding-bottom: 120px;
         }
 
         .tab-content {
             display: none;
-            animation: fadeIn 0.3s ease-in-out;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
         }
 
         .tab-content.active {
             display: block;
+            opacity: 1;
+            transform: translateY(0);
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Tab bar */
+        /* Enhanced tab bar with curved design */
         .tab-bar {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: #ffffff;
-            border-top: 1px solid #e5e5e5;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--tab-bar-bg);
+            border-radius: 30px;
             display: flex;
-            height: 80px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            height: 70px;
+            padding: 10px;
+            box-shadow: 0 -8px 25px var(--shadow);
             z-index: 1000;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--divider);
+            transition: all 0.3s ease;
         }
 
         .tab-item {
+            position: relative;
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -68,19 +125,83 @@
             justify-content: center;
             padding: 8px 4px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             background: none;
             border: none;
-            color: #8e8e93;
+            color: var(--tab-inactive);
             text-decoration: none;
+            border-radius: 20px;
+            min-width: 50px;
         }
 
-        .tab-item.active {
-            color: #007bff;
+        /* Center button special styling */
+        .tab-item.center {
+            background: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            margin: 0 5px;
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+            transform: translateY(-5px);
         }
 
-        .tab-item:hover {
-            background: #f8f9fa;
+        .tab-item.center:hover {
+            transform: translateY(-7px) scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+        }
+
+        .tab-item.center:active {
+            transform: translateY(-3px) scale(0.98);
+        }
+
+        /* Dividers between regular tabs */
+        .tab-item:not(.center):not(:last-child)::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 20%;
+            height: 60%;
+            width: 1px;
+            background: var(--divider);
+            transition: opacity 0.3s ease;
+        }
+
+        .tab-item:not(.center).active::after,
+        .tab-item:not(.center):hover::after {
+            opacity: 0;
+        }
+
+        /* Active state with soft underline */
+        .tab-item.active:not(.center) {
+            color: var(--tab-active);
+        }
+
+        .tab-item.active:not(.center)::before {
+            content: '';
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
+            border-radius: 1px;
+            opacity: 1;
+            transition: all 0.4s ease;
+        }
+
+        /* Hover effects */
+        .tab-item:not(.center):hover {
+            color: var(--primary-light);
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateY(-2px);
+        }
+
+        /* Tap feedback */
+        .tab-item:not(.center):active {
+            transform: translateY(0) scale(0.95);
+            color: var(--primary-color);
         }
 
         .tab-icon {
@@ -88,6 +209,13 @@
             height: 24px;
             margin-bottom: 4px;
             fill: currentColor;
+            transition: all 0.3s ease;
+        }
+
+        .tab-item.center .tab-icon {
+            margin-bottom: 0;
+            width: 26px;
+            height: 26px;
         }
 
         .tab-label {
@@ -95,6 +223,25 @@
             font-weight: 500;
             text-align: center;
             line-height: 1.2;
+            transition: all 0.3s ease;
+        }
+
+        .tab-item.center .tab-label {
+            display: none;
+        }
+
+        /* Active line animation */
+        .active-indicator {
+            position: absolute;
+            bottom: 8px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
+            border-radius: 1px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            width: 30px;
+            left: 50%;
+            transform: translateX(-50%);
         }
 
         /* Content styling */
@@ -105,21 +252,28 @@
         .page-title {
             font-size: 28px;
             font-weight: 700;
-            color: #1c1c1e;
+            color: var(--text-primary);
             margin-bottom: 8px;
         }
 
         .page-subtitle {
             font-size: 16px;
-            color: #8e8e93;
+            color: var(--text-secondary);
         }
 
         .card {
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 20px;
             margin-bottom: 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 12px var(--shadow);
+            border: 1px solid var(--divider);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px var(--shadow);
         }
 
         .feature-list {
@@ -128,39 +282,34 @@
 
         .feature-list li {
             padding: 12px 0;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid var(--divider);
             display: flex;
             align-items: center;
+            transition: all 0.3s ease;
         }
 
         .feature-list li:last-child {
             border-bottom: none;
         }
 
+        .feature-list li:hover {
+            padding-left: 8px;
+            color: var(--primary-color);
+        }
+
         .feature-icon {
             width: 20px;
             height: 20px;
             margin-right: 12px;
-            fill: #007bff;
-        }
-
-        /* Responsive adjustments */
-        @media (max-width: 480px) {
-            .tab-label {
-                font-size: 9px;
-            }
-            
-            .tab-icon {
-                width: 22px;
-                height: 22px;
-            }
+            fill: var(--primary-color);
+            transition: all 0.3s ease;
         }
 
         /* Badge for notifications */
-        .tab-item .badge {
+        .badge {
             position: absolute;
-            top: 8px;
-            right: 20px;
+            top: 5px;
+            right: 5px;
             background: #ff3b30;
             color: white;
             border-radius: 10px;
@@ -169,14 +318,68 @@
             font-weight: 600;
             min-width: 16px;
             text-align: center;
+            animation: pulse 2s infinite;
         }
 
-        .tab-item {
-            position: relative;
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            .tab-bar {
+                bottom: 10px;
+                left: 10px;
+                right: 10px;
+            }
+            
+            .tab-label {
+                font-size: 9px;
+            }
+            
+            .tab-icon {
+                width: 20px;
+                height: 20px;
+            }
+        }
+
+        @media (max-width: 320px) {
+            .tab-item {
+                min-width: 40px;
+            }
+            
+            .tab-item.center {
+                width: 45px;
+                height: 45px;
+            }
+            
+            .tab-bar {
+                left: 5px;
+                right: 5px;
+            }
+        }
+
+        /* Accessibility improvements */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Focus states for keyboard navigation */
+        .tab-item:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
         }
     </style>
 </head>
 <body>
+    <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+
     <div class="app-container">
         <!-- Content Area -->
         <div class="content-area">
@@ -237,6 +440,37 @@
                                 <path d="M7 4V2C7 1.45 7.45 1 8 1S9 1.45 9 2V4H15V2C15 1.45 15.45 1 16 1S17 1.45 17 2V4H20C21.1 4 22 4.9 22 6V20C22 21.1 21.1 22 20 22H4C2.9 22 2 21.1 2 20V6C2 4.9 2.9 4 4 4H7ZM4 8H20V20H4V8ZM6 10V12H8V10H6ZM10 10V12H12V10H10ZM14 10V12H16V10H14Z"/>
                             </svg>
                             Internet - $79 (Due Jan 25)
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Add Tab Content -->
+            <div id="add" class="tab-content">
+                <div class="page-header">
+                    <h1 class="page-title">Add New</h1>
+                    <p class="page-subtitle">Create new bills and transactions</p>
+                </div>
+                <div class="card">
+                    <h3>Quick Actions</h3>
+                    <ul class="feature-list">
+                        <li>
+                            <svg class="feature-icon" viewBox="0 0 24 24">
+                                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            </svg>
+                            Add new bill
+                        </li>
+                        <li>
+                            <svg class="feature-icon" viewBox="0 0 24 24">
+                                <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+                            </svg>
+                            Record payment
+                        </li>
+                        <li>
+                            <svg class="feature-icon" viewBox="0 0 24 24">
+                                <path d="M7 4V2C7 1.45 7.45 1 8 1S9 1.45 9 2V4H15V2C15 1.45 15.45 1 16 1S17 1.45 17 2V4H20C21.1 4 22 4.9 22 6V20C22 21.1 21.1 22 20 22H4C2.9 22 2 21.1 2 20V6C2 4.9 2.9 4 4 4H7ZM4 8H20V20H4V8Z"/>
+                            </svg>
+                            Schedule reminder
                         </li>
                     </ul>
                 </div>
@@ -305,16 +539,16 @@
             </div>
         </div>
 
-        <!-- Tab Bar Navigation -->
+        <!-- Enhanced Tab Bar Navigation -->
         <nav class="tab-bar">
-            <button class="tab-item active" data-tab="dashboard">
+            <button class="tab-item active" data-tab="dashboard" aria-label="Dashboard">
                 <svg class="tab-icon" viewBox="0 0 24 24">
                     <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
                 </svg>
                 <span class="tab-label">Dashboard</span>
             </button>
 
-            <button class="tab-item" data-tab="bills">
+            <button class="tab-item" data-tab="bills" aria-label="Bills">
                 <svg class="tab-icon" viewBox="0 0 24 24">
                     <path d="M7 4V2C7 1.45 7.45 1 8 1S9 1.45 9 2V4H15V2C15 1.45 15.45 1 16 1S17 1.45 17 2V4H20C21.1 4 22 4.9 22 6V20C22 21.1 21.1 22 20 22H4C2.9 22 2 21.1 2 20V6C2 4.9 2.9 4 4 4H7ZM4 8H20V20H4V8Z"/>
                 </svg>
@@ -322,58 +556,19 @@
                 <span class="badge">3</span>
             </button>
 
-            <button class="tab-item" data-tab="reports">
+            <button class="tab-item center" data-tab="add" aria-label="Add new">
+                <svg class="tab-icon" viewBox="0 0 24 24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+            </button>
+
+            <button class="tab-item" data-tab="reports" aria-label="Reports">
                 <svg class="tab-icon" viewBox="0 0 24 24">
                     <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99l1.5 1.5z"/>
                 </svg>
                 <span class="tab-label">Reports</span>
             </button>
 
-            <button class="tab-item" data-tab="settings">
+            <button class="tab-item" data-tab="settings" aria-label="Settings">
                 <svg class="tab-icon" viewBox="0 0 24 24">
-                    <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
-                </svg>
-                <span class="tab-label">Settings</span>
-            </button>
-        </nav>
-    </div>
-
-    <script>
-        // Tab navigation functionality
-        document.querySelectorAll('.tab-item').forEach(tab => {
-            tab.addEventListener('click', function() {
-                const targetTab = this.getAttribute('data-tab');
-                
-                // Remove active class from all tabs and content
-                document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-                
-                // Add active class to clicked tab and corresponding content
-                this.classList.add('active');
-                document.getElementById(targetTab).classList.add('active');
-                
-                // Optional: Add haptic feedback for mobile
-                if ('vibrate' in navigator) {
-                    navigator.vibrate(50);
-                }
-            });
-        });
-
-        // Prevent zoom on double tap (iOS)
-        let lastTouchEnd = 0;
-        document.addEventListener('touchend', function (event) {
-            const now = (new Date()).getTime();
-            if (now - lastTouchEnd <= 300) {
-                event.preventDefault();
-            }
-            lastTouchEnd = now;
-        }, false);
-
-        // Add safe area handling for devices with notches
-        if (CSS.supports('padding-top: env(safe-area-inset-top)')) {
-            document.body.style.paddingTop = 'env(safe-area-inset-top)';
-            document.querySelector('.tab-bar').style.paddingBottom = 'env(safe-area-inset-bottom)';
-        }
-    </script>
-</body>
-</html>
+                    <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62
