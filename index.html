@@ -2,102 +2,115 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Budget Tracker – Email/Password Auth</title>
+  <title>Budget Tracker – Email/Password + MFA (TOTP)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: system-ui, Arial; max-width: 780px; margin: 2rem auto; padding: 0 1rem; }
-    h1 { margin-bottom: 0.25rem; }
-    .muted { color: #666; margin-top: 0; }
-    form { display: grid; gap: 8px; margin: 12px 0 20px; max-width: 440px; }
-    label { font-weight: 600; }
-    input { padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
-    button { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; background: #f6f6f6; cursor: pointer; }
+    body { font-family: system-ui, Arial; max-width: 820px; margin: 2rem auto; padding: 0 1rem; }
+    h2 { margin-top: 2rem; }
+    form { display: grid; gap: 8px; max-width: 420px; }
+    input, button { padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; }
+    button { cursor: pointer; }
     button:disabled { opacity: .6; cursor: not-allowed; }
-    .row { display: flex; gap: 10px; align-items: center; }
+    .row { display: flex; gap: 10px; align-items: center; margin: 6px 0; }
     .card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 14px; margin: 10px 0; }
-    pre { background:#f6f6f6; padding:10px; border-radius:8px; overflow:auto; }
-    #status.ok { color:#0a7; } #status.err { color:#c00; }
     .hide { display: none; }
+    .ok { color:#0a7; } .err { color:#c00; }
+    pre { background:#f6f6f6; padding:10px; border-radius:8px; overflow:auto; }
+    .secret { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; background:#fff; padding:6px 8px; border:1px dashed #bbb; border-radius:8px; display:inline-block; }
+    img.qr { width: 220px; height: 220px; border: 1px solid #ddd; border-radius: 8px; }
   </style>
 </head>
 <body>
-  <h1>Budget Tracker</h1>
-  <p class="muted">Email + password sign in (Supabase Auth)</p>
+  <h1>Budget Tracker – Email/Password + MFA (TOTP)</h1>
 
-  <!-- Status -->
   <p id="status" class="err">Not signed in.</p>
   <div class="row">
     <button id="signout" class="hide">Sign out</button>
   </div>
 
-  <!-- Auth forms -->
   <div class="card" id="signup-card">
-    <h3>Create account</h3>
+    <h2>Create account</h2>
     <form id="signup-form">
-      <div>
-        <label for="su-email">Email</label>
-        <input id="su-email" type="email" placeholder="you@example.com" required />
-      </div>
-      <div>
-        <label for="su-password">Password</label>
-        <input id="su-password" type="password" placeholder="At least 6 characters" minlength="6" required />
-      </div>
-      <button type="submit" id="signup-btn">Sign up</button>
+      <label>Email <input id="su-email" type="email" required placeholder="you@example.com" /></label>
+      <label>Password <input id="su-password" type="password" required minlength="6" placeholder="At least 6 characters" /></label>
+      <button id="signup-btn" type="submit">Sign up</button>
       <div id="signup-msg"></div>
     </form>
   </div>
 
   <div class="card" id="signin-card">
-    <h3>Sign in</h3>
+    <h2>Sign in</h2>
     <form id="signin-form">
-      <div>
-        <label for="si-email">Email</label>
-        <input id="si-email" type="email" placeholder="you@example.com" required />
-      </div>
-      <div>
-        <label for="si-password">Password</label>
-        <input id="si-password" type="password" placeholder="Your password" required />
-      </div>
-      <button type="submit" id="signin-btn">Sign in</button>
+      <label>Email <input id="si-email" type="email" required placeholder="you@example.com" /></label>
+      <label>Password <input id="si-password" type="password" required placeholder="Your password" /></label>
+      <button id="signin-btn" type="submit">Sign in</button>
       <div id="signin-msg"></div>
     </form>
     <button id="forgot-btn">Forgot password?</button>
   </div>
 
   <div class="card hide" id="forgot-card">
-    <h3>Reset password</h3>
+    <h2>Reset password</h2>
     <form id="forgot-form">
-      <div>
-        <label for="fp-email">Email</label>
-        <input id="fp-email" type="email" placeholder="you@example.com" required />
-      </div>
-      <button type="submit" id="forgot-send">Send reset email</button>
+      <label>Email <input id="fp-email" type="email" required placeholder="you@example.com" /></label>
+      <button id="forgot-send" type="submit">Send reset email</button>
       <div id="forgot-msg"></div>
     </form>
   </div>
 
   <div class="card hide" id="recovery-card">
-    <h3>Set a new password</h3>
+    <h2>Set a new password</h2>
     <form id="recovery-form">
-      <div>
-        <label for="rp-password">New password</label>
-        <input id="rp-password" type="password" placeholder="New password" minlength="6" required />
-      </div>
-      <button type="submit" id="recovery-save">Save new password</button>
+      <label>New password <input id="rp-password" type="password" required minlength="6" /></label>
+      <button id="recovery-save" type="submit">Save new password</button>
       <div id="recovery-msg"></div>
     </form>
   </div>
 
-  <!-- Read test -->
-  <div class="card">
-    <h3>Read test (paychecks → employer)</h3>
-    <button id="read" disabled>Read employers</button>
-    <pre id="out"></pre>
+  <!-- ===== MFA (TOTP) SECTION ===== -->
+  <div class="card hide" id="mfa-card">
+    <h2>MFA (TOTP) Settings</h2>
+
+    <div id="mfa-status" class="row">Checking MFA status…</div>
+
+    <div id="mfa-enroll-block" class="hide">
+      <h3>Enable MFA (TOTP)</h3>
+      <button id="mfa-start">Generate QR / Setup key</button>
+      <div id="mfa-enroll-ui" class="hide">
+        <div class="row">
+          <img id="mfa-qr" class="qr" alt="TOTP QR" />
+          <div>
+            <div>Setup key (Base32): <span id="mfa-secret" class="secret"></span></div>
+            <div class="row"><a id="mfa-otpauth" href="#" rel="noopener">Add on this phone</a></div>
+          </div>
+        </div>
+        <div class="row">
+          <label>6-digit code <input id="mfa-code" type="text" inputmode="numeric" pattern="\\d{6}" placeholder="123456" /></label>
+          <button id="mfa-verify">Verify & Activate</button>
+        </div>
+        <div id="mfa-enroll-msg"></div>
+      </div>
+    </div>
+
+    <div id="mfa-already-block" class="hide">
+      <h3>MFA is enabled</h3>
+      <div id="mfa-factors"></div>
+    </div>
   </div>
 
-  <!-- Debug -->
+  <!-- MFA during sign-in (when required) -->
+  <div class="card hide" id="mfa-login-card">
+    <h2>Verify MFA Code</h2>
+    <p>Enter the 6-digit code from your authenticator app.</p>
+    <div class="row">
+      <input id="mfa-login-code" type="text" inputmode="numeric" pattern="\\d{6}" placeholder="123456" />
+      <button id="mfa-login-verify">Verify</button>
+    </div>
+    <div id="mfa-login-msg"></div>
+  </div>
+
   <div class="card">
-    <h3>Debug</h3>
+    <h2>Debug</h2>
     <pre id="log"></pre>
   </div>
 
@@ -107,135 +120,130 @@
     // Elements
     const statusEl = document.getElementById('status');
     const logEl = document.getElementById('log');
-    const outEl = document.getElementById('out');
-    const readBtn = document.getElementById('read');
-    const signoutBtn = document.getElementById('signout');
 
     const signupCard = document.getElementById('signup-card');
     const signinCard = document.getElementById('signin-card');
-    const forgotCard = document.getElementById('forgot-card');
-    const recoveryCard = document.getElementById('recovery-card');
+    const signoutBtn = document.getElementById('signout');
 
     const signupForm = document.getElementById('signup-form');
     const signinForm = document.getElementById('signin-form');
-    const forgotForm = document.getElementById('forgot-form');
-    const recoveryForm = document.getElementById('recovery-form');
-
     const signupMsg = document.getElementById('signup-msg');
     const signinMsg = document.getElementById('signin-msg');
-    const forgotMsg = document.getElementById('forgot-msg');
-    const recoveryMsg = document.getElementById('recovery-msg');
 
     const forgotBtn = document.getElementById('forgot-btn');
+    const forgotCard = document.getElementById('forgot-card');
+    const forgotForm = document.getElementById('forgot-form');
+    const forgotMsg = document.getElementById('forgot-msg');
+
+    const recoveryCard = document.getElementById('recovery-card');
+    const recoveryForm = document.getElementById('recovery-form');
+    const recoveryMsg = document.getElementById('recovery-msg');
+
+    // MFA elements
+    const mfaCard = document.getElementById('mfa-card');
+    const mfaStatus = document.getElementById('mfa-status');
+    const mfaEnrollBlock = document.getElementById('mfa-enroll-block');
+    const mfaStartBtn = document.getElementById('mfa-start');
+    const mfaEnrollUI = document.getElementById('mfa-enroll-ui');
+    const mfaQR = document.getElementById('mfa-qr');
+    const mfaSecret = document.getElementById('mfa-secret');
+    const mfaOtpAuth = document.getElementById('mfa-otpauth');
+    const mfaCode = document.getElementById('mfa-code');
+    const mfaVerifyBtn = document.getElementById('mfa-verify');
+    const mfaEnrollMsg = document.getElementById('mfa-enroll-msg');
+    const mfaAlreadyBlock = document.getElementById('mfa-already-block');
+    const mfaFactorsDiv = document.getElementById('mfa-factors');
+
+    const mfaLoginCard = document.getElementById('mfa-login-card');
+    const mfaLoginCode = document.getElementById('mfa-login-code');
+    const mfaLoginVerifyBtn = document.getElementById('mfa-login-verify');
+    const mfaLoginMsg = document.getElementById('mfa-login-msg');
+
+    // State for MFA flow
+    let pendingMfa = { factorId: null, challengeId: null };   // used when login requires MFA
+    let enrollFactorId = null;                                 // used during enrollment
 
     // Helpers
     const log = (label, val) => {
       const msg = `${label}: ${typeof val === 'string' ? val : JSON.stringify(val, null, 2)}`;
-      logEl.textContent += msg + "\\n\\n";
+      logEl.textContent += msg + "\n\n";
       console.log(label, val);
     };
     const setSignedIn = (email) => {
       statusEl.textContent = `Signed in as: ${email}`;
       statusEl.classList.remove('err'); statusEl.classList.add('ok');
       signoutBtn.classList.remove('hide');
-      readBtn.disabled = false;
       signupCard.classList.add('hide');
       signinCard.classList.add('hide');
-      forgotCard.classList.add('hide');
+      mfaCard.classList.remove('hide');
     };
     const setSignedOut = () => {
       statusEl.textContent = 'Not signed in.';
       statusEl.classList.remove('ok'); statusEl.classList.add('err');
       signoutBtn.classList.add('hide');
-      readBtn.disabled = true;
       signupCard.classList.remove('hide');
       signinCard.classList.remove('hide');
-      // recoveryCard stays hidden unless in recovery mode
-      recoveryCard.classList.add('hide');
+      mfaCard.classList.add('hide');
+      mfaLoginCard.classList.add('hide');
     };
 
-    // A) Handle redirects (email confirmation or password recovery)
+    // ---------- Auth redirect handling (email confirm / password recovery / oauth) ----------
     async function handleRedirect() {
       const href = location.href;
       log('URL on load', href);
-      const hasTokens = href.includes('code=') || href.includes('access_token=');
-      if (hasTokens) {
+      if (href.includes('code=') || href.includes('access_token=')) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(href);
-        if (error) log('exchangeCodeForSession error', error.message);
-        else {
-          log('exchangeCodeForSession data', data);
-        }
-        // Clean URL
+        if (error) log('exchangeCodeForSession error', error.message); else log('exchangeCodeForSession data', data);
         history.replaceState({}, document.title, '/budget-tracker/');
       }
-
-      // If this is a password recovery session (user clicked "reset password" email),
-      // Supabase will set the session type to 'recovery'. Show new password form.
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user && session?.expires_at) {
-        // try to detect recovery via event hook as well
-      }
     }
-
     await handleRedirect();
 
-    // B) Reflect session
+    // ---------- Session reflection ----------
     async function refreshSession() {
       const { data: { session }, error } = await supabase.auth.getSession();
       log('getSession error', error ?? 'none');
       log('getSession session', session ?? null);
       if (session?.user?.email) {
         setSignedIn(session.user.email);
+        await renderMfaStatus();
       } else {
         setSignedOut();
       }
     }
     await refreshSession();
 
-    // C) Auth state changes (also detects recovery)
     supabase.auth.onAuthStateChange((event, session) => {
       log('onAuthStateChange', { event, user: session?.user ?? null });
       if (session?.user?.email) {
         setSignedIn(session.user.email);
-        if (event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') {
-          // Show recovery form when landing from reset email
-          signinCard.classList.add('hide');
-          signupCard.classList.add('hide');
-          forgotCard.classList.add('hide');
-          recoveryCard.classList.remove('hide');
-        }
+        renderMfaStatus();
       } else {
         setSignedOut();
       }
     });
 
-    // D) Sign up
+    // ---------- Sign up ----------
     signupForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       signupMsg.textContent = '...';
       const email = document.getElementById('su-email').value.trim();
       const password = document.getElementById('su-password').value;
-
       const { data, error } = await supabase.auth.signUp({
         email, password,
-        options: {
-          // If email confirmations are ON, user must click the email and return to this page.
-          emailRedirectTo: 'https://charles85298.github.io/budget-tracker/'
-        }
+        options: { emailRedirectTo: 'https://charles85298.github.io/budget-tracker/' }
       });
-      if (error) {
-        signupMsg.textContent = 'Error: ' + error.message;
-      } else {
-        // If confirmations OFF → you may already be signed in. If ON → they must verify email.
+      if (error) signupMsg.textContent = 'Error: ' + error.message;
+      else {
         signupMsg.textContent = data?.user?.email_confirmed_at
-          ? 'Account created & confirmed.'
+          ? 'Account created.'
           : 'Check your email to confirm your account.';
         log('signUp', data);
         await refreshSession();
       }
     });
 
-    // E) Sign in (email + password)
+    // ---------- Sign in (handles MFA-required case) ----------
     signinForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       signinMsg.textContent = '...';
@@ -243,8 +251,31 @@
       const password = document.getElementById('si-password').value;
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
       if (error) {
-        signinMsg.textContent = 'Error: ' + error.message;
+        // Supabase signals MFA with a specific error; detect and branch.
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('mfa')) {
+          signinMsg.textContent = 'MFA required: enter your 6-digit code.';
+          // Fetch enrolled factors so we know which factor to challenge.
+          const lf = await supabase.auth.mfa.listFactors();
+          log('listFactors (after mfa_required)', lf);
+          const firstTotp = lf?.data?.totp?.[0];
+          if (!firstTotp) {
+            signinMsg.textContent = 'MFA required but no TOTP factor found.';
+            return;
+          }
+          // Create a challenge for that factor
+          const ch = await supabase.auth.mfa.challenge({ factorId: firstTotp.id });
+          if (ch.error) {
+            signinMsg.textContent = 'Error starting MFA challenge: ' + ch.error.message;
+            return;
+          }
+          pendingMfa = { factorId: firstTotp.id, challengeId: ch.data.id };
+          mfaLoginCard.classList.remove('hide');
+        } else {
+          signinMsg.textContent = 'Error: ' + error.message;
+        }
       } else {
         signinMsg.textContent = 'Signed in.';
         log('signInWithPassword', data);
@@ -252,10 +283,30 @@
       }
     });
 
-    // F) Forgot password → send reset email
-    forgotBtn.addEventListener('click', () => {
-      forgotCard.classList.toggle('hide');
+    // ---------- Verify MFA during login ----------
+    mfaLoginVerifyBtn.addEventListener('click', async () => {
+      mfaLoginMsg.textContent = 'Verifying…';
+      const code = mfaLoginCode.value.trim();
+      if (!pendingMfa.factorId || !pendingMfa.challengeId) {
+        mfaLoginMsg.textContent = 'No MFA challenge in progress.';
+        return;
+      }
+      const vr = await supabase.auth.mfa.verify({
+        factorId: pendingMfa.factorId,
+        code,
+        challengeId: pendingMfa.challengeId,
+      });
+      if (vr.error) {
+        mfaLoginMsg.textContent = 'MFA verify error: ' + vr.error.message;
+      } else {
+        mfaLoginMsg.textContent = 'MFA verified. Signed in.';
+        mfaLoginCard.classList.add('hide');
+        await refreshSession();
+      }
     });
+
+    // ---------- Password reset ----------
+    forgotBtn.addEventListener('click', () => forgotCard.classList.toggle('hide'));
     forgotForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       forgotMsg.textContent = '...';
@@ -264,42 +315,100 @@
         redirectTo: 'https://charles85298.github.io/budget-tracker/'
       });
       if (error) forgotMsg.textContent = 'Error: ' + error.message;
-      else {
-        forgotMsg.textContent = 'Reset email sent. Check your inbox.';
-        log('resetPasswordForEmail', data);
-      }
+      else { forgotMsg.textContent = 'Reset email sent. Check your inbox.'; log('resetPasswordForEmail', data); }
     });
-
-    // G) Recovery: set new password
     recoveryForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       recoveryMsg.textContent = '...';
       const newPassword = document.getElementById('rp-password').value;
       const { data, error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) recoveryMsg.textContent = 'Error: ' + error.message;
-      else {
-        recoveryMsg.textContent = 'Password updated. You are signed in.';
-        log('updateUser (password)', data);
-        await refreshSession();
-      }
+      else { recoveryMsg.textContent = 'Password updated. You are signed in.'; log('updateUser (password)', data); await refreshSession(); }
     });
 
-    // H) Sign out
+    // ---------- Sign out ----------
     signoutBtn.addEventListener('click', async () => {
       const { error } = await supabase.auth.signOut();
       if (error) log('signOut error', error.message);
       setSignedOut();
     });
 
-    // I) Read test (requires your RLS policy to allow authenticated users)
-    readBtn.addEventListener('click', async () => {
-      outEl.textContent = 'Loading…';
-      const { data, error } = await supabase
-        .from('paychecks')
-        .select('paycheck_id, employer, pay_date, net_amount')
-        .limit(10);
-      outEl.textContent = error ? `Error: ${error.message}` : JSON.stringify(data, null, 2);
-      log('read paychecks', error ?? data);
+    // ---------- MFA helpers ----------
+    async function renderMfaStatus() {
+      // List existing factors
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      log('listFactors', error ?? data);
+
+      const totp = data?.totp ?? [];
+      if (totp.length) {
+        mfaStatus.textContent = `MFA enabled (${totp.length} TOTP factor${totp.length>1?'s':''})`;
+        mfaEnrollBlock.classList.add('hide');
+        mfaAlreadyBlock.classList.remove('hide');
+        mfaFactorsDiv.textContent = totp.map(f => `• ${f.friendly_name || 'TOTP'} (id: ${f.id})`).join('\n') || 'TOTP enrolled.';
+      } else {
+        mfaStatus.textContent = 'MFA not enabled';
+        mfaEnrollBlock.classList.remove('hide');
+        mfaAlreadyBlock.classList.add('hide');
+      }
+    }
+
+    // Start enroll: get QR + secret
+    mfaStartBtn.addEventListener('click', async () => {
+      mfaEnrollMsg.textContent = 'Generating…';
+      // Request a TOTP enrollment
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+      if (error) { mfaEnrollMsg.textContent = 'Enroll error: ' + error.message; return; }
+      log('mfa.enroll', data);
+
+      enrollFactorId = data.id; // factor id for later verify
+      // Show QR (as data URL) and secret + deep link
+      mfaQR.src = data.totp.qr_code;                 // png data url
+      mfaSecret.textContent = data.totp.secret;      // base32
+      const user = (await supabase.auth.getUser()).data?.user;
+      const issuer = encodeURIComponent('Budget Tracker');
+      const account = encodeURIComponent(user?.email || 'user');
+      const otpauth = data.totp.uri || `otpauth://totp/${issuer}:${account}?secret=${data.totp.secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+      mfaOtpAuth.href = otpauth;
+
+      mfaEnrollUI.classList.remove('hide');
+      mfaEnrollMsg.textContent = 'Scan QR or tap link / enter setup key, then enter the 6-digit code.';
+    });
+
+    // Verify enroll (activate factor)
+    mfaVerifyBtn.addEventListener('click', async () => {
+      mfaEnrollMsg.textContent = 'Verifying…';
+      const code = mfaCode.value.trim();
+      if (!enrollFactorId) { mfaEnrollMsg.textContent = 'No enrollment in progress.'; return; }
+
+      // Create a challenge for this factor, then verify
+      const ch = await supabase.auth.mfa.challenge({ factorId: enrollFactorId });
+      if (ch.error) { mfaEnrollMsg.textContent = 'Challenge error: ' + ch.error.message; return; }
+
+      const vr = await supabase.auth.mfa.verify({
+        factorId: enrollFactorId,
+        code,
+        challengeId: ch.data.id,
+      });
+      if (vr.error) {
+        mfaEnrollMsg.textContent = 'Verify error: ' + vr.error.message;
+      } else {
+        mfaEnrollMsg.textContent = 'MFA enabled!';
+        await renderMfaStatus();
+        // Clear UI
+        mfaEnrollUI.classList.add('hide');
+        mfaCode.value = '';
+        enrollFactorId = null;
+      }
+    });
+
+    // If Supabase flags password recovery via auth event, show the recovery card
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        signinCard.classList.add('hide');
+        signupCard.classList.add('hide');
+        forgotCard.classList.add('hide');
+        recoveryCard.classList.remove('hide');
+      }
     });
   </script>
 </body>
