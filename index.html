@@ -3,53 +3,75 @@
 <head>
   <meta charset="UTF-8" />
   <title>Budget Tracker – Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: system-ui, Arial; max-width: 760px; margin: 2rem auto; }
+    :root { --bg:#ffffff; --muted:#f6f6f6; --ok:#0a7; --err:#c00; }
+    body { font-family: system-ui, Arial; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
     label { margin-right: 8px; }
-    button { margin-left: 8px; }
-    pre { background:#f6f6f6; padding:10px; border-radius:8px; overflow:auto; }
-    .ok { color: #0a7; }
-    .err { color: #c00; }
+    button { margin-left: 8px; padding: 6px 10px; }
+    pre { background: var(--muted); padding:10px; border-radius:8px; overflow:auto; }
+    #status.ok { color: var(--ok); }
+    #status.err { color: var(--err); }
+    .row { margin: 12px 0; }
   </style>
 </head>
 <body>
   <h1>Budget Tracker – Login</h1>
 
-  <div>
+  <div class="row">
     <label for="email">Email</label>
     <input id="email" type="email" placeholder="you@example.com" required />
     <button id="send">Send Magic Link</button>
   </div>
 
-  <p id="status">Not signed in.</p>
+  <p id="status" class="err">Not signed in.</p>
 
   <h3>Debug</h3>
   <pre id="log"></pre>
 
   <h3>Read test</h3>
-  <button id="read" disabled>Read employers</button>
+  <div class="row">
+    <button id="read" disabled>Read employers</button>
+  </div>
   <pre id="out"></pre>
 
   <script type="module">
     import { supabase } from './supabaseClient.js';
 
+    // --- Elements
     const statusEl = document.getElementById('status');
     const logEl = document.getElementById('log');
     const outEl = document.getElementById('out');
+    const sendBtn = document.getElementById('send');
     const readBtn = document.getElementById('read');
 
+    // --- Helpers
     const log = (label, val) => {
       const msg = `${label}: ${typeof val === 'string' ? val : JSON.stringify(val, null, 2)}`;
       logEl.textContent += msg + "\n\n";
       console.log(label, val);
     };
+    const setSignedIn = (email) => {
+      statusEl.textContent = `Signed in as: ${email}`;
+      statusEl.classList.remove('err'); statusEl.classList.add('ok');
+      readBtn.disabled = false;
+    };
+    const setSignedOut = () => {
+      statusEl.textContent = 'Not signed in.';
+      statusEl.classList.remove('ok'); statusEl.classList.add('err');
+      readBtn.disabled = true;
+    };
 
-    // A) Handle redirect tokens and persist the session
+    // --- A) Handle redirect tokens and persist the session (MUST run before session check)
     async function handleRedirect() {
       const href = location.href;
       log('URL on load', href);
 
-      const hasTokens = href.includes('access_token=') || href.includes('refresh_token=') || href.includes('code=');
+      const hasTokens =
+        href.includes('access_token=') ||
+        href.includes('refresh_token=') ||
+        href.includes('code=');
+
       log('Has tokens in URL', hasTokens);
 
       if (hasTokens) {
@@ -59,48 +81,54 @@
         } else {
           log('exchangeCodeForSession data', data);
         }
-        // Clean URL (very important on Pages)
+        // Clean the URL only AFTER exchange (keeps GitHub Pages path correct)
         history.replaceState({}, document.title, '/budget-tracker/');
       }
     }
     await handleRedirect();
 
-    // B) Reflect current session & enable read button
-    async function setSessionStatus() {
+    // --- B) Reflect current session & enable read
+    async function refreshSessionUI() {
       const { data: { session }, error } = await supabase.auth.getSession();
       log('getSession error', error ?? 'none');
       log('getSession session', session ?? null);
 
-      if (session?.user) {
-        statusEl.textContent = `Signed in as: ${session.user.email}`;
-        statusEl.className = 'ok';
-        readBtn.disabled = false;
-      } else {
-        statusEl.textContent = 'Not signed in.';
-        statusEl.className = 'err';
-        readBtn.disabled = true;
-      }
+      if (session?.user?.email) setSignedIn(session.user.email);
+      else setSignedOut();
     }
-    await setSessionStatus();
+    await refreshSessionUI();
 
-    // C) Keep UI in sync with auth changes
+    // --- C) Listen for auth changes
     supabase.auth.onAuthStateChange((event, session) => {
       log('onAuthStateChange', { event, user: session?.user ?? null });
-      setSessionStatus();
+      if (session?.user?.email) setSignedIn(session.user.email);
+      else setSignedOut();
     });
 
-    // D) Send magic link
-    document.getElementById('send').addEventListener('click', async () => {
+    // --- D) Send magic link
+    sendBtn.addEventListener('click', async () => {
       const email = document.getElementById('email').value.trim();
       log('Send magic link to', email || '(empty)');
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
+          // MUST match Supabase Auth → URL Configuration (with trailing slash)
           emailRedirectTo: 'https://charles85298.github.io/budget-tracker/'
         }
       });
       log('signInWithOtp result', error ? ('ERROR: ' + error.message) : 'sent');
     });
 
-    // E) Read test (requires auth if your policy is authenticated-only)
-    readBtn.addEventListener('
+    // --- E) Test read (requires your policy to allow authenticated users to read)
+    readBtn.addEventListener('click', async () => {
+      outEl.textContent = 'Loading…';
+      const { data, error } = await supabase
+        .from('paychecks')
+        .select('paycheck_id, employer, pay_date, net_amount')
+        .limit(10);
+      outEl.textContent = error ? `Error: ${error.message}` : JSON.stringify(data, null, 2);
+      log('read paychecks', error ?? data);
+    });
+  </script>
+</body>
+</html>
