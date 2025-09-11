@@ -12,7 +12,7 @@
 
     // 1) Simple test query (replace YOUR_TABLE with a real public table)
     const { data: testData, error: testError } =
-      await supabase.from('YOUR_TABLE').select('*').limit(1);
+      await supabase.from('paychecks').select('*').limit(1);
     console.log('Test query →', { testData, testError });
 
     // 2) Employers from paychecks table
