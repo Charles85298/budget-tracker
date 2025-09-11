@@ -3,51 +3,104 @@
 <head>
   <meta charset="UTF-8" />
   <title>Budget Tracker – Login</title>
+  <style>
+    body { font-family: system-ui, Arial; max-width: 760px; margin: 2rem auto; }
+    label { margin-right: 8px; }
+    button { margin-left: 8px; }
+    pre { background:#f6f6f6; padding:10px; border-radius:8px; overflow:auto; }
+    .ok { color: #0a7; }
+    .err { color: #c00; }
+  </style>
 </head>
 <body>
   <h1>Budget Tracker – Login</h1>
 
-  <label for="email">Email</label>
-  <input id="email" type="email" placeholder="you@example.com" required />
-  <button id="send">Send Magic Link</button>
-  <p id="status"></p>
+  <div>
+    <label for="email">Email</label>
+    <input id="email" type="email" placeholder="you@example.com" required />
+    <button id="send">Send Magic Link</button>
+  </div>
 
-  <!-- ✅ Place all JavaScript here -->
+  <p id="status">Not signed in.</p>
+
+  <h3>Debug</h3>
+  <pre id="log"></pre>
+
+  <h3>Read test</h3>
+  <button id="read" disabled>Read employers</button>
+  <pre id="out"></pre>
+
   <script type="module">
     import { supabase } from './supabaseClient.js';
 
-    const status = document.getElementById('status');
-    const btn = document.getElementById('send');
+    const statusEl = document.getElementById('status');
+    const logEl = document.getElementById('log');
+    const outEl = document.getElementById('out');
+    const readBtn = document.getElementById('read');
 
-    /* 📍 FIRST: Handle the redirect and exchange the auth code */
+    const log = (label, val) => {
+      const msg = `${label}: ${typeof val === 'string' ? val : JSON.stringify(val, null, 2)}`;
+      logEl.textContent += msg + "\n\n";
+      console.log(label, val);
+    };
+
+    // A) Handle redirect tokens and persist the session
     async function handleRedirect() {
-      if (location.href.includes('access_token=') || location.href.includes('code=')) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(location.href);
-        if (error) console.error('exchangeCodeForSession error:', error.message);
-        // Clean up URL
+      const href = location.href;
+      log('URL on load', href);
+
+      const hasTokens = href.includes('access_token=') || href.includes('refresh_token=') || href.includes('code=');
+      log('Has tokens in URL', hasTokens);
+
+      if (hasTokens) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(href);
+        if (error) {
+          log('exchangeCodeForSession error', error.message);
+        } else {
+          log('exchangeCodeForSession data', data);
+        }
+        // Clean URL (very important on Pages)
         history.replaceState({}, document.title, '/budget-tracker/');
       }
     }
     await handleRedirect();
 
-    /* 📍 SECOND: Check if already signed in */
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      status.textContent = `Signed in as: ${session.user.email}`;
-    }
+    // B) Reflect current session & enable read button
+    async function setSessionStatus() {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      log('getSession error', error ?? 'none');
+      log('getSession session', session ?? null);
 
-    /* 📍 THIRD: Send magic link when button is clicked */
-    btn.addEventListener('click', async () => {
+      if (session?.user) {
+        statusEl.textContent = `Signed in as: ${session.user.email}`;
+        statusEl.className = 'ok';
+        readBtn.disabled = false;
+      } else {
+        statusEl.textContent = 'Not signed in.';
+        statusEl.className = 'err';
+        readBtn.disabled = true;
+      }
+    }
+    await setSessionStatus();
+
+    // C) Keep UI in sync with auth changes
+    supabase.auth.onAuthStateChange((event, session) => {
+      log('onAuthStateChange', { event, user: session?.user ?? null });
+      setSessionStatus();
+    });
+
+    // D) Send magic link
+    document.getElementById('send').addEventListener('click', async () => {
       const email = document.getElementById('email').value.trim();
-      status.textContent = 'Sending...';
+      log('Send magic link to', email || '(empty)');
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
           emailRedirectTo: 'https://charles85298.github.io/budget-tracker/'
         }
       });
-      status.textContent = error ? `Error: ${error.message}` : 'Magic link sent. Check your email.';
+      log('signInWithOtp result', error ? ('ERROR: ' + error.message) : 'sent');
     });
-  </script>
-</body>
-</html>
+
+    // E) Read test (requires auth if your policy is authenticated-only)
+    readBtn.addEventListener('
