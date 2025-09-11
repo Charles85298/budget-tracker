@@ -118,4 +118,189 @@
 
     const signupForm = document.getElementById('signup-form');
     const signinForm = document.getElementById('signin-form');
-    const forgotForm = docu
+    const forgotForm = document.getElementById('forgot-form');
+    const recoveryForm = document.getElementById('recovery-form');
+
+    const signupMsg = document.getElementById('signup-msg');
+    const signinMsg = document.getElementById('signin-msg');
+    const forgotMsg = document.getElementById('forgot-msg');
+    const recoveryMsg = document.getElementById('recovery-msg');
+
+    const forgotBtn = document.getElementById('forgot-btn');
+
+    // Helpers
+    const log = (label, val) => {
+      const msg = `${label}: ${typeof val === 'string' ? val : JSON.stringify(val, null, 2)}`;
+      logEl.textContent += msg + "\\n\\n";
+      console.log(label, val);
+    };
+    const setSignedIn = (email) => {
+      statusEl.textContent = `Signed in as: ${email}`;
+      statusEl.classList.remove('err'); statusEl.classList.add('ok');
+      signoutBtn.classList.remove('hide');
+      readBtn.disabled = false;
+      signupCard.classList.add('hide');
+      signinCard.classList.add('hide');
+      forgotCard.classList.add('hide');
+    };
+    const setSignedOut = () => {
+      statusEl.textContent = 'Not signed in.';
+      statusEl.classList.remove('ok'); statusEl.classList.add('err');
+      signoutBtn.classList.add('hide');
+      readBtn.disabled = true;
+      signupCard.classList.remove('hide');
+      signinCard.classList.remove('hide');
+      // recoveryCard stays hidden unless in recovery mode
+      recoveryCard.classList.add('hide');
+    };
+
+    // A) Handle redirects (email confirmation or password recovery)
+    async function handleRedirect() {
+      const href = location.href;
+      log('URL on load', href);
+      const hasTokens = href.includes('code=') || href.includes('access_token=');
+      if (hasTokens) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(href);
+        if (error) log('exchangeCodeForSession error', error.message);
+        else {
+          log('exchangeCodeForSession data', data);
+        }
+        // Clean URL
+        history.replaceState({}, document.title, '/budget-tracker/');
+      }
+
+      // If this is a password recovery session (user clicked "reset password" email),
+      // Supabase will set the session type to 'recovery'. Show new password form.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user && session?.expires_at) {
+        // try to detect recovery via event hook as well
+      }
+    }
+
+    await handleRedirect();
+
+    // B) Reflect session
+    async function refreshSession() {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      log('getSession error', error ?? 'none');
+      log('getSession session', session ?? null);
+      if (session?.user?.email) {
+        setSignedIn(session.user.email);
+      } else {
+        setSignedOut();
+      }
+    }
+    await refreshSession();
+
+    // C) Auth state changes (also detects recovery)
+    supabase.auth.onAuthStateChange((event, session) => {
+      log('onAuthStateChange', { event, user: session?.user ?? null });
+      if (session?.user?.email) {
+        setSignedIn(session.user.email);
+        if (event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') {
+          // Show recovery form when landing from reset email
+          signinCard.classList.add('hide');
+          signupCard.classList.add('hide');
+          forgotCard.classList.add('hide');
+          recoveryCard.classList.remove('hide');
+        }
+      } else {
+        setSignedOut();
+      }
+    });
+
+    // D) Sign up
+    signupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      signupMsg.textContent = '...';
+      const email = document.getElementById('su-email').value.trim();
+      const password = document.getElementById('su-password').value;
+
+      const { data, error } = await supabase.auth.signUp({
+        email, password,
+        options: {
+          // If email confirmations are ON, user must click the email and return to this page.
+          emailRedirectTo: 'https://charles85298.github.io/budget-tracker/'
+        }
+      });
+      if (error) {
+        signupMsg.textContent = 'Error: ' + error.message;
+      } else {
+        // If confirmations OFF → you may already be signed in. If ON → they must verify email.
+        signupMsg.textContent = data?.user?.email_confirmed_at
+          ? 'Account created & confirmed.'
+          : 'Check your email to confirm your account.';
+        log('signUp', data);
+        await refreshSession();
+      }
+    });
+
+    // E) Sign in (email + password)
+    signinForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      signinMsg.textContent = '...';
+      const email = document.getElementById('si-email').value.trim();
+      const password = document.getElementById('si-password').value;
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        signinMsg.textContent = 'Error: ' + error.message;
+      } else {
+        signinMsg.textContent = 'Signed in.';
+        log('signInWithPassword', data);
+        await refreshSession();
+      }
+    });
+
+    // F) Forgot password → send reset email
+    forgotBtn.addEventListener('click', () => {
+      forgotCard.classList.toggle('hide');
+    });
+    forgotForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      forgotMsg.textContent = '...';
+      const email = document.getElementById('fp-email').value.trim();
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://charles85298.github.io/budget-tracker/'
+      });
+      if (error) forgotMsg.textContent = 'Error: ' + error.message;
+      else {
+        forgotMsg.textContent = 'Reset email sent. Check your inbox.';
+        log('resetPasswordForEmail', data);
+      }
+    });
+
+    // G) Recovery: set new password
+    recoveryForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      recoveryMsg.textContent = '...';
+      const newPassword = document.getElementById('rp-password').value;
+      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) recoveryMsg.textContent = 'Error: ' + error.message;
+      else {
+        recoveryMsg.textContent = 'Password updated. You are signed in.';
+        log('updateUser (password)', data);
+        await refreshSession();
+      }
+    });
+
+    // H) Sign out
+    signoutBtn.addEventListener('click', async () => {
+      const { error } = await supabase.auth.signOut();
+      if (error) log('signOut error', error.message);
+      setSignedOut();
+    });
+
+    // I) Read test (requires your RLS policy to allow authenticated users)
+    readBtn.addEventListener('click', async () => {
+      outEl.textContent = 'Loading…';
+      const { data, error } = await supabase
+        .from('paychecks')
+        .select('paycheck_id, employer, pay_date, net_amount')
+        .limit(10);
+      outEl.textContent = error ? `Error: ${error.message}` : JSON.stringify(data, null, 2);
+      log('read paychecks', error ?? data);
+    });
+  </script>
+</body>
+</html>
