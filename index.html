@@ -10,26 +10,39 @@
   <label for="email">Email</label>
   <input id="email" type="email" placeholder="you@example.com" required />
   <button id="send">Send Magic Link</button>
-
   <p id="status"></p>
 
+  <!-- ✅ Place all JavaScript here -->
   <script type="module">
     import { supabase } from './supabaseClient.js';
 
     const status = document.getElementById('status');
     const btn = document.getElementById('send');
 
-    // show current session (if already logged in via magic link)
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) status.textContent = `Signed in as: ${session.user.email}`;
+    /* 📍 FIRST: Handle the redirect and exchange the auth code */
+    async function handleRedirect() {
+      if (location.href.includes('access_token=') || location.href.includes('code=')) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(location.href);
+        if (error) console.error('exchangeCodeForSession error:', error.message);
+        // Clean up URL
+        history.replaceState({}, document.title, '/budget-tracker/');
+      }
+    }
+    await handleRedirect();
 
+    /* 📍 SECOND: Check if already signed in */
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      status.textContent = `Signed in as: ${session.user.email}`;
+    }
+
+    /* 📍 THIRD: Send magic link when button is clicked */
     btn.addEventListener('click', async () => {
       const email = document.getElementById('email').value.trim();
       status.textContent = 'Sending...';
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          // must be allowed in Supabase → Auth → URL Configuration → Redirect URLs
           emailRedirectTo: 'https://charles85298.github.io/budget-tracker/'
         }
       });
