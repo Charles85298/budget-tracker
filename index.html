@@ -2,104 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Budget Tracker — Auth + Read Test</title>
-  <style>
-    body { font-family: ui-sans-serif, system-ui, Arial; max-width: 700px; margin: 2rem auto; }
-    #card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; }
-    label { display:block; margin: 8px 0 4px; }
-    input { padding: 8px; width: 100%; }
-    button { margin-top: 10px; padding: 8px 12px; }
-    pre { background:#f7f7f7; padding:10px; border-radius:8px; overflow:auto; }
-  </style>
+  <title>Budget Tracker – Login</title>
 </head>
 <body>
-  <h1>Budget Tracker — Auth + Read Test</h1>
+  <h1>Budget Tracker – Login</h1>
 
-  <div id="card">
-    <div id="auth-block">
-      <h3>Sign in (Magic Link)</h3>
-      <p>Enter your email to receive a sign-in link.</p>
-      <label for="email">Email</label>
-      <input id="email" type="email" placeholder="you@example.com" required />
-      <button id="send-link">Send Magic Link</button>
-      <p id="msg"></p>
-    </div>
+  <label for="email">Email</label>
+  <input id="email" type="email" placeholder="you@example.com" required />
+  <button id="send">Send Magic Link</button>
 
-    <div id="session-block" style="display:none">
-      <h3>Session</h3>
-      <pre id="session"></pre>
-      <button id="signout">Sign out</button>
-    </div>
-
-    <div id="results" style="display:none">
-      <h3>Diagnostics</h3>
-      <pre id="out"></pre>
-    </div>
-  </div>
+  <p id="status"></p>
 
   <script type="module">
     import { supabase } from './supabaseClient.js';
 
-    const authBlock = document.getElementById('auth-block');
-    const sessionBlock = document.getElementById('session-block');
-    const sessionPre = document.getElementById('session');
-    const msg = document.getElementById('msg');
-    const results = document.getElementById('results');
-    const out = document.getElementById('out');
+    const status = document.getElementById('status');
+    const btn = document.getElementById('send');
 
-    const log = (label, obj) => {
-      results.style.display = 'block';
-      out.textContent += `${label}:\n` + (typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2)) + "\n\n";
-    };
-
-    // 1) Show current session on load
+    // show current session (if already logged in via magic link)
     const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      authBlock.style.display = 'none';
-      sessionBlock.style.display = 'block';
-      sessionPre.textContent = JSON.stringify({ user: session.user }, null, 2);
-      await readPaychecks();   // already logged in → read immediately
-    } else {
-      authBlock.style.display = 'block';
-    }
+    if (session) status.textContent = `Signed in as: ${session.user.email}`;
 
-    // 2) Send magic link
-    document.getElementById('send-link').addEventListener('click', async () => {
-      msg.textContent = 'Sending…';
+    btn.addEventListener('click', async () => {
       const email = document.getElementById('email').value.trim();
+      status.textContent = 'Sending...';
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          // make sure this is added in Supabase Auth → URL Configuration → Redirect URLs
+          // must be allowed in Supabase → Auth → URL Configuration → Redirect URLs
           emailRedirectTo: 'https://charles85298.github.io/budget-tracker/'
         }
       });
-      msg.textContent = error ? ('Error: ' + error.message) : 'Magic link sent. Check your email and click the link.';
+      status.textContent = error ? `Error: ${error.message}` : 'Magic link sent. Check your email.';
     });
-
-    // 3) Sign out
-    document.getElementById('signout').addEventListener('click', async () => {
-      await supabase.auth.signOut();
-      location.reload();
-    });
-
-    // 4) Read employers + count
-    async function readPaychecks() {
-      // row count (RLS-safe)
-      const { count, error: countErr } = await supabase
-        .from('paychecks')
-        .select('paycheck_id', { count: 'exact', head: true }); // adjust id column name if different
-
-      log('Row count', countErr ? countErr.message : count ?? '(null)');
-
-      // employers sample
-      const { data, error } = await supabase
-        .from('paychecks')
-        .select('employer, paycheck_id, pay_date, net_amount')
-        .limit(10);
-
-      log('Employers select', error ? error.message : data);
-    }
   </script>
 </body>
 </html>
