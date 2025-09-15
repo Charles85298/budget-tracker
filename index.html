@@ -520,12 +520,28 @@
     // ===== Redirect handling (email confirm / recovery)
     async function handleRedirect() {
       const href = location.href;
+      const urlParams = new URLSearchParams(window.location.search);
       log('URL on load', href);
-      if (href.includes('code=') || href.includes('access_token=')) {
+      log('URL parameters', Object.fromEntries(urlParams));
+
+      // Check for various auth-related parameters
+      if (href.includes('code=') || href.includes('access_token=') || href.includes('token=')) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(href);
-        if (error) log('exchangeCodeForSession error', error.message);
-        else log('exchangeCodeForSession data', data);
-        history.replaceState({}, document.title, '/budget-tracker/');
+        if (error) {
+          log('exchangeCodeForSession error', error.message);
+        } else {
+          log('exchangeCodeForSession data', data);
+          
+          // Check if this is a password recovery
+          if (urlParams.get('type') === 'recovery' || data?.user) {
+            log('Password recovery detected', 'Showing recovery form');
+            // The onAuthStateChange will handle showing the recovery form
+          }
+        }
+        
+        // Clean up the URL after processing
+        const cleanUrl = window.location.origin + window.location.pathname;
+        history.replaceState({}, document.title, cleanUrl);
       }
     }
     await handleRedirect();
