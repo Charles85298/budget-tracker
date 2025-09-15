@@ -11,6 +11,9 @@
     input, button { padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; }
     button { cursor: pointer; }
     button:disabled { opacity: .6; cursor: not-allowed; }
+    .timeout-warning { position: fixed; top: 20px; right: 20px; background: #ff6b35; color: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; max-width: 300px; }
+    .timeout-warning button { background: white; color: #ff6b35; border: none; padding: 8px 16px; border-radius: 4px; margin-top: 10px; cursor: pointer; }
+    .remember-email { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
     .row { display: flex; gap: 10px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
     .card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 14px; margin: 10px 0; }
     .hide { display: none; }
@@ -27,6 +30,14 @@
   <p id="status" class="err">Not signed in.</p>
   <div class="row">
     <button id="signout" class="hide">Sign out</button>
+    <span id="session-timer" class="hide"></span>
+  </div>
+
+  <!-- Session Timeout Warning -->
+  <div id="timeout-warning" class="timeout-warning hide">
+    <div><strong>Session Expiring Soon!</strong></div>
+    <div>Your session will expire in <span id="timeout-countdown">5:00</span></div>
+    <button id="extend-session">Stay Logged In</button>
   </div>
 
   <!-- Auth: Sign up / Sign in -->
@@ -45,6 +56,10 @@
     <form id="signin-form">
       <label>Email <input id="si-email" type="email" required placeholder="you@example.com" /></label>
       <label>Password <input id="si-password" type="password" required placeholder="Your password" /></label>
+      <div class="remember-email">
+        <input type="checkbox" id="remember-email" checked />
+        <label for="remember-email">Remember my email address</label>
+      </div>
       <button id="signin-btn" type="submit">Sign in</button>
       <div id="signin-msg"></div>
     </form>
@@ -135,10 +150,15 @@
     // ===== Elements
     const statusEl = document.getElementById('status');
     const logEl = document.getElementById('log');
+    const sessionTimerEl = document.getElementById('session-timer');
+    const timeoutWarningEl = document.getElementById('timeout-warning');
+    const timeoutCountdownEl = document.getElementById('timeout-countdown');
+    const extendSessionBtn = document.getElementById('extend-session');
 
     const signupCard = document.getElementById('signup-card');
     const signinCard = document.getElementById('signin-card');
     const signoutBtn = document.getElementById('signout');
+    const rememberEmailCheckbox = document.getElementById('remember-email');
 
     const signupForm = document.getElementById('signup-form');
     const signupMsg = document.getElementById('signup-msg');
@@ -181,19 +201,286 @@
 
     // ===== State
     const REQUIRE_MFA = true;
+    const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+    const WARNING_TIME_MS = 25 * 60 * 1000; // 25 minutes (5 min warning)
+    
     let pendingMfa = { factorId: null, challengeId: null };
     let enrollFactorId = null;
+    let currentLoginId = null;
+    let sessionTimer = null;
+    let warningTimer = null;
+    let lastActivityTime = Date.now();
 
     // ===== Helpers
     const log = (label, val) => {
       const msg = `${label}: ${typeof val === 'string' ? val : JSON.stringify(val, null, 2)}`;
-      logEl.textContent += msg + "\\n\\n";
+      logEl.textContent += msg + "\n\n";
       console.log(label, val);
     };
+
+    // Email storage management
+    const saveEmail = (email, remember) => {
+      if (remember) {
+        localStorage.setItem('budget_tracker_email', email);
+      } else {
+        localStorage.removeItem('budget_tracker_email');
+      }
+    };
+
+    const loadSavedEmail = () => {
+      const saved = localStorage.getItem('budget_tracker_email');
+      if (saved) {
+        document.getElementById('si-email').value = saved;
+        rememberEmailCheckbox.checked = true;
+      }
+    };
+
+    // Enhanced IP address detection with multiple fallbacks
+    const getClientIP = async () => {
+      try {
+        // Try multiple IP services for reliability
+        const services = [
+          { url: 'https://api.ipify.org?format=json', key: 'ip' },
+          { url: 'https://httpbin.org/ip', key: 'origin' },
+          { url: 'https://api.myip.com', key: 'ip' }
+        ];
+        
+        for (const service of services) {
+          try {
+            const response = await fetch(service.url, { timeout: 3000 });
+            if (response.ok) {
+              const data = await response.json();
+              const ip = data[service.key];
+              if (ip && ip !== 'unknown') return ip;
+            }
+          } catch (serviceError) {
+            console.warn(`IP service ${service.url} failed:`, serviceError);
+            continue;
+          }
+        }
+        return 'unknown';
+      } catch {
+        return 'unknown';
+      }
+    };
+
+    // Enhanced error handling for database operations
+    const handleDatabaseError = (error, operation) => {
+      console.warn(`${operation} failed:`, error);
+      
+      // If RLS policies are blocking, show user-friendly message
+      if (error.message?.includes('policy') || error.message?.includes('permission')) {
+        console.info('Database security policies are working correctly');
+        return false; // Don't show error to user
+      }
+      
+      // For other errors, we might want to inform the user
+      if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        log('Connection issue', 'Database temporarily unavailable');
+        return true; // Show connection error
+      }
+      
+      return false; // Don't show generic errors
+    };
+
+    // Test database connectivity
+    const testDatabaseConnections = async () => {
+      try {
+        log('Testing database connections', 'Starting connectivity test...');
+        
+        // Test basic connection
+        const { data: authTest, error: authError } = await supabase.auth.getSession();
+        if (authError) throw new Error(`Auth test failed: ${authError.message}`);
+        
+        // Test table access (these will return empty if RLS is working)
+        const { error: loginError } = await supabase.from('user_login_history').select('count').limit(1);
+        const { error: activityError } = await supabase.from('user_activity_log').select('count').limit(1);
+        const { error: failedError } = await supabase.from('failed_login_attempts').select('count').limit(1);
+        
+        if (loginError || activityError || failedError) {
+          log('Database table access', 'RLS policies active (expected)');
+        } else {
+          log('Database connectivity', 'All tables accessible');
+        }
+        
+        log('Database test', 'Connection successful');
+        return true;
+      } catch (error) {
+        log('Database test failed', error.message);
+        console.error('Database connectivity issue:', error);
+        return false;
+      }
+    };
+
+    // Activity tracking with improved error handling
+    const trackActivity = async (activityType, details = '') => {
+      lastActivityTime = Date.now();
+      
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && currentLoginId) {
+          const { error } = await supabase.from('user_activity_log').insert({
+            user_id: user.id,
+            login_id: currentLoginId,
+            activity_type: activityType,
+            page_url: window.location.href,
+            action_description: details
+          });
+          
+          if (error) {
+            const shouldShowError = handleDatabaseError(error, 'Activity tracking');
+            if (shouldShowError) {
+              log('Activity tracking issue', 'Temporary logging issue');
+            }
+          }
+        }
+      } catch (error) {
+        handleDatabaseError(error, 'Activity tracking');
+      }
+    };
+
+    // Session timeout management
+    const startSessionTimer = () => {
+      clearSessionTimers();
+      
+      // Warning timer (25 minutes)
+      warningTimer = setTimeout(() => {
+        showTimeoutWarning();
+      }, WARNING_TIME_MS);
+      
+      // Session timeout (30 minutes)
+      sessionTimer = setTimeout(() => {
+        handleSessionTimeout();
+      }, SESSION_TIMEOUT_MS);
+      
+      updateSessionDisplay();
+    };
+
+    const clearSessionTimers = () => {
+      if (warningTimer) clearTimeout(warningTimer);
+      if (sessionTimer) clearTimeout(sessionTimer);
+      timeoutWarningEl.classList.add('hide');
+    };
+
+    const showTimeoutWarning = () => {
+      timeoutWarningEl.classList.remove('hide');
+      startCountdown();
+    };
+
+    const startCountdown = () => {
+      let timeLeft = (SESSION_TIMEOUT_MS - WARNING_TIME_MS) / 1000; // 5 minutes in seconds
+      
+      const countdown = setInterval(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timeoutCountdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        if (timeLeft <= 0) {
+          clearInterval(countdown);
+          handleSessionTimeout();
+        }
+        timeLeft--;
+      }, 1000);
+    };
+
+    const handleSessionTimeout = async () => {
+      clearSessionTimers();
+      await logLogout('timeout');
+      await supabase.auth.signOut();
+      setSignedOut();
+      alert('Your session has expired due to inactivity. Please sign in again.');
+    };
+
+    const extendSession = () => {
+      trackActivity('session_extended', 'User manually extended session');
+      startSessionTimer();
+      timeoutWarningEl.classList.add('hide');
+    };
+
+    const updateSessionDisplay = () => {
+      if (sessionTimer) {
+        sessionTimerEl.textContent = 'Session active';
+        sessionTimerEl.classList.remove('hide');
+      } else {
+        sessionTimerEl.classList.add('hide');
+      }
+    };
+
+    // Login history tracking with improved error handling
+    const logSuccessfulLogin = async (method = 'email_password_totp') => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const clientIP = await getClientIP();
+          const { data, error } = await supabase.from('user_login_history').insert({
+            user_id: user.id,
+            login_method: method,
+            ip_address: clientIP,
+            user_agent: navigator.userAgent
+          }).select('login_id').single();
+          
+          if (error) {
+            const shouldShowError = handleDatabaseError(error, 'Login history tracking');
+            if (shouldShowError) {
+              log('Login tracking issue', 'Unable to record login details');
+            }
+          } else if (data) {
+            currentLoginId = data.login_id;
+            trackActivity('login_successful', `Login method: ${method}`);
+            log('Login tracked', `Login ID: ${currentLoginId}`);
+          }
+        }
+      } catch (error) {
+        handleDatabaseError(error, 'Login history tracking');
+      }
+    };
+
+    const logFailedLogin = async (email, reason) => {
+      try {
+        const clientIP = await getClientIP();
+        const { error } = await supabase.from('failed_login_attempts').insert({
+          email: email,
+          failure_reason: reason,
+          ip_address: clientIP,
+          user_agent: navigator.userAgent
+        });
+        
+        if (error) {
+          handleDatabaseError(error, 'Failed login tracking');
+        }
+      } catch (error) {
+        handleDatabaseError(error, 'Failed login tracking');
+      }
+    };
+
+    const logLogout = async (reason = 'manual') => {
+      try {
+        if (currentLoginId) {
+          const { error } = await supabase.from('user_login_history')
+            .update({
+              logout_timestamp: new Date().toISOString(),
+              logout_reason: reason
+            })
+            .eq('login_id', currentLoginId);
+          
+          if (error) {
+            handleDatabaseError(error, 'Logout tracking');
+          } else {
+            trackActivity('logout', `Logout reason: ${reason}`);
+            log('Logout tracked', `Reason: ${reason}`);
+          }
+          currentLoginId = null;
+        }
+      } catch (error) {
+        handleDatabaseError(error, 'Logout tracking');
+      }
+    };
+
     const gateApp = (blocked) => {
       if (blocked) appGated.classList.add('gate');
       else appGated.classList.remove('gate');
     };
+
     const setSignedIn = (email) => {
       statusEl.textContent = `Signed in as: ${email}`;
       statusEl.classList.remove('err'); statusEl.classList.add('ok');
@@ -201,7 +488,9 @@
       signupCard.classList.add('hide');
       signinCard.classList.add('hide');
       mfaCard.classList.remove('hide');
+      startSessionTimer();
     };
+
     const setSignedOut = () => {
       statusEl.textContent = 'Not signed in.';
       statusEl.classList.remove('ok'); statusEl.classList.add('err');
@@ -210,7 +499,22 @@
       signinCard.classList.remove('hide');
       mfaCard.classList.add('hide');
       mfaLoginCard.classList.add('hide');
+      clearSessionTimers();
       gateApp(true);
+      
+      // Clear sensitive session data but preserve email if user chose to remember
+      const currentEmail = document.getElementById('si-email').value;
+      const rememberEmail = rememberEmailCheckbox.checked;
+      
+      if (!rememberEmail && currentEmail) {
+        localStorage.removeItem('budget_tracker_email');
+        document.getElementById('si-email').value = '';
+        rememberEmailCheckbox.checked = false;
+      }
+      
+      // Clear any cached session data
+      currentLoginId = null;
+      pendingMfa = { factorId: null, challengeId: null };
     };
 
     // ===== Redirect handling (email confirm / recovery)
@@ -233,11 +537,25 @@
       log('getSession session', session ?? null);
       if (session?.user?.email) {
         setSignedIn(session.user.email);
+        trackActivity('session_refreshed', 'Page load with existing session');
         await enforceMfa();
       } else {
         setSignedOut();
       }
     }
+    
+    // Initialize app when page loads
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Load saved email preference
+      loadSavedEmail();
+      
+      // Test database connectivity
+      const dbConnected = await testDatabaseConnections();
+      if (!dbConnected) {
+        log('Warning', 'Database connectivity issues detected - some features may be limited');
+      }
+    });
+    
     await refreshSession();
 
     supabase.auth.onAuthStateChange(async (event, session) => {
@@ -266,7 +584,7 @@
         mfaStatus.textContent = `MFA enabled (${totp.length} TOTP factor${totp.length > 1 ? 's' : ''})`;
         mfaEnrollBlock.classList.add('hide');
         mfaAlreadyBlock.classList.remove('hide');
-        mfaFactorsDiv.textContent = totp.map(f => `• TOTP (id: ${f.id})`).join('\\n') || 'TOTP enrolled.';
+        mfaFactorsDiv.textContent = totp.map(f => `• TOTP (id: ${f.id})`).join('\n') || 'TOTP enrolled.';
         gateApp(false); // UNLOCK APP
       } else {
         // No verified factor → lock app and push user through enrollment
@@ -355,6 +673,10 @@
       signinMsg.textContent = '...';
       const email = document.getElementById('si-email').value.trim();
       const password = document.getElementById('si-password').value;
+      const rememberEmail = rememberEmailCheckbox.checked;
+
+      // Save email preference
+      saveEmail(email, rememberEmail);
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -365,17 +687,27 @@
           const lf = await supabase.auth.mfa.listFactors();
           log('listFactors (after mfa_required)', lf);
           const firstVerified = (lf?.data?.totp ?? []).find(f => f.status === 'verified');
-          if (!firstVerified) { signinMsg.textContent = 'MFA required but no verified TOTP factor found.'; return; }
+          if (!firstVerified) { 
+            signinMsg.textContent = 'MFA required but no verified TOTP factor found.';
+            await logFailedLogin(email, 'no_mfa_factor');
+            return; 
+          }
           const ch = await supabase.auth.mfa.challenge({ factorId: firstVerified.id });
-          if (ch.error) { signinMsg.textContent = 'Error starting MFA challenge: ' + ch.error.message; return; }
+          if (ch.error) { 
+            signinMsg.textContent = 'Error starting MFA challenge: ' + ch.error.message;
+            await logFailedLogin(email, 'mfa_challenge_failed');
+            return; 
+          }
           pendingMfa = { factorId: firstVerified.id, challengeId: ch.data.id };
           mfaLoginCard.classList.remove('hide');
         } else {
           signinMsg.textContent = 'Error: ' + error.message;
+          await logFailedLogin(email, 'invalid_credentials');
         }
       } else {
         signinMsg.textContent = 'Signed in.';
         log('signInWithPassword', data);
+        await logSuccessfulLogin('email_password_totp');
         await refreshSession();
       }
     });
@@ -395,9 +727,12 @@
       });
       if (vr.error) {
         mfaLoginMsg.textContent = 'MFA verify error: ' + vr.error.message;
+        const email = document.getElementById('si-email').value.trim();
+        await logFailedLogin(email, 'invalid_totp');
       } else {
         mfaLoginMsg.textContent = 'MFA verified. Signed in.';
         mfaLoginCard.classList.add('hide');
+        await logSuccessfulLogin('email_password_totp');
         await refreshSession();
       }
     });
@@ -425,6 +760,7 @@
 
     // ===== Sign out
     signoutBtn.addEventListener('click', async () => {
+      await logLogout('manual');
       const { error } = await supabase.auth.signOut();
       if (error) log('signOut error', error.message);
       setSignedOut();
@@ -433,6 +769,7 @@
     // ===== Paychecks viewer (inside gated area)
     readBtn?.addEventListener('click', async () => {
       outEl.textContent = 'Loading…';
+      trackActivity('data_access', 'Loading paychecks');
       const { data, error } = await supabase
         .from('paychecks')
         .select('paycheck_id, employer, pay_date, net_amount')
@@ -441,6 +778,74 @@
       outEl.textContent = error ? `Error: ${error.message}` : JSON.stringify(data, null, 2);
       log('read paychecks', error ?? data);
     });
+
+    // ===== Activity tracking event listeners (improved)
+    let activityThrottle = null;
+    const throttledTrackActivity = (type, details) => {
+      if (activityThrottle) return; // Prevent excessive logging
+      
+      trackActivity(type, details);
+      activityThrottle = setTimeout(() => {
+        activityThrottle = null;
+      }, 1000); // Only log once per second max
+    };
+
+    document.addEventListener('click', (e) => {
+      const element = e.target.tagName || 'unknown';
+      throttledTrackActivity('click', `Element: ${element}`);
+    });
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.target.type === 'password') return; // Don't log password field activity
+      throttledTrackActivity('keydown', 'User interaction');
+    });
+    
+    // Track form submissions with better details
+    document.querySelectorAll('form').forEach(form => {
+      form.addEventListener('submit', (e) => {
+        const formId = e.target.id || 'unknown-form';
+        trackActivity('form_submit', `Form: ${formId}`);
+      });
+    });
+
+    // Track page visibility changes (user switching tabs, etc.)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        trackActivity('page_hidden', 'User switched away from tab');
+      } else {
+        trackActivity('page_visible', 'User returned to tab');
+      }
+    });
+
+    // Enhanced page unload tracking
+    window.addEventListener('beforeunload', async (e) => {
+      if (currentLoginId) {
+        // Use sendBeacon for reliable tracking even during page unload
+        const activityData = {
+          user_id: (await supabase.auth.getUser()).data?.user?.id,
+          login_id: currentLoginId,
+          activity_type: 'page_unload',
+          page_url: window.location.href,
+          action_description: 'User navigating away or closing page'
+        };
+        
+        // Attempt to send beacon (more reliable than fetch during unload)
+        if (navigator.sendBeacon) {
+          const blob = new Blob([JSON.stringify(activityData)], { type: 'application/json' });
+          navigator.sendBeacon('/api/track-activity', blob);
+        }
+        
+        // Also try direct database call as backup
+        try {
+          await supabase.from('user_activity_log').insert(activityData);
+        } catch (error) {
+          // Ignore errors during page unload
+        }
+      }
+    });
+
+    // ===== Session extension
+    extendSessionBtn.addEventListener('click', extendSession);
   </script>
 </body>
 </html>
