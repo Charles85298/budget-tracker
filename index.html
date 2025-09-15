@@ -876,5 +876,35 @@
     // ===== Session extension
     extendSessionBtn.addEventListener('click', extendSession);
   </script>
+  <!-- Add this button temporarily -->
+<button onclick="testRecovery()">Test Recovery Detection</button>
+
+<script>
+function testRecovery() {
+  // Get current session
+  supabase.auth.getSession().then(({data: {session}}) => {
+    console.log('Current session:', session);
+    
+    if (session?.access_token) {
+      try {
+        const tokenPayload = JSON.parse(atob(session.access_token.split('.')[1]));
+        console.log('Token payload:', tokenPayload);
+        console.log('Auth methods (amr):', tokenPayload.amr);
+        
+        const isRecovery = tokenPayload.amr?.some(method => method.method === 'recovery');
+        console.log('Is recovery session?', isRecovery);
+        
+        if (isRecovery) {
+          document.getElementById('recovery-card').classList.remove('hide');
+          document.getElementById('signin-card').classList.add('hide');
+          document.getElementById('mfa-card').classList.add('hide');
+        }
+      } catch (error) {
+        console.error('Token parsing error:', error);
+      }
+    }
+  });
+}
+</script>
 </body>
 </html>
