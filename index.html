@@ -312,6 +312,23 @@
       }
     };
 
+    // Helper function to detect if this is a recovery session
+    const isRecoverySession = (session) => {
+      if (!session?.user) return false;
+      
+      // Check if the access token indicates recovery method
+      try {
+        const tokenPayload = JSON.parse(atob(session.access_token.split('.')[1]));
+        const authMethods = tokenPayload.amr || [];
+        const isRecovery = authMethods.some(method => method.method === 'recovery');
+        log('Recovery session check', { authMethods, isRecovery });
+        return isRecovery;
+      } catch (error) {
+        log('Token parsing error', error);
+        return false;
+      }
+    };
+
     // Activity tracking with improved error handling
     const trackActivity = async (activityType, details = '') => {
       lastActivityTime = Date.now();
@@ -517,15 +534,65 @@
       pendingMfa = { factorId: null, challengeId: null };
     };
 
+    // Show recovery form
+    const showRecoveryForm = () => {
+      log('Showing recovery form', 'Password reset mode activated');
+      signupCard.classList.add('hide');
+      signinCard.classList.add('hide');
+      forgotCard.classList.add('hide');
+      mfaCard.classList.add('hide');
+      mfaLoginCard.classList.add('hide');
+      recoveryCard.classList.remove('hide');
+      
+      statusEl.textContent = 'Password recovery mode - set your new password';
+      statusEl.classList.remove('err');
+      statusEl.classList.add('ok');
+      signoutBtn.classList.remove('hide'); // Allow sign out during recovery
+    };
+
     // ===== Redirect handling (email confirm / recovery)
     async function handleRedirect() {
       const href = location.href;
+      const urlParams = new URLSearchParams(window.location.search);
       log('URL on load', href);
-      if (href.includes('code=') || href.includes('access_token=')) {
+      log('URL parameters', Object.fromEntries(urlParams));
+
+      // Check for password recovery code specifically
+      const recoveryCode = urlParams.get('code');
+      const type = urlParams.get('type');
+      
+      if (recoveryCode && (type === 'recovery' || href.includes('recovery'))) {
+        log('Password recovery link detected', 'Showing recovery form directly');
+        showRecoveryForm();
+        
+        // Store the recovery code for use in password update
+        window.recoveryCode = recoveryCode;
+        
+        // Clean up URL
+        const cleanUrl = window.location.origin + window.location.pathname;
+        history.replaceState({}, document.title, cleanUrl);
+        return;
+      }
+
+      // Handle other auth redirects
+      if (href.includes('code=') || href.includes('access_token=') || href.includes('token=')) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(href);
-        if (error) log('exchangeCodeForSession error', error.message);
-        else log('exchangeCodeForSession data', data);
-        history.replaceState({}, document.title, '/budget-tracker/');
+        if (error) {
+          log('exchangeCodeForSession error', error.message);
+          
+          // If this fails but we have a code, it might be a recovery link
+          if (recoveryCode) {
+            log('Session exchange failed, treating as recovery', 'Showing recovery form');
+            showRecoveryForm();
+            window.recoveryCode = recoveryCode;
+          }
+        } else {
+          log('exchangeCodeForSession data', data);
+        }
+        
+        // Clean up the URL after processing
+        const cleanUrl = window.location.origin + window.location.pathname;
+        history.replaceState({}, document.title, cleanUrl);
       }
     }
     await handleRedirect();
@@ -540,17 +607,7 @@
         // Check if this is a recovery session before doing normal login
         if (isRecoverySession(session)) {
           log('Recovery session detected in refreshSession', 'Showing recovery form');
-          signupCard.classList.add('hide');
-          signinCard.classList.add('hide');
-          forgotCard.classList.add('hide');
-          mfaCard.classList.add('hide');
-          mfaLoginCard.classList.add('hide');
-          recoveryCard.classList.remove('hide');
-          
-          statusEl.textContent = 'Password recovery mode - set your new password';
-          statusEl.classList.remove('err');
-          statusEl.classList.add('ok');
-          signoutBtn.classList.remove('hide'); // Allow sign out during recovery
+          showRecoveryForm();
           return; // Don't do normal login flow
         }
         
@@ -578,17 +635,19 @@
 
     supabase.auth.onAuthStateChange(async (event, session) => {
       log('onAuthStateChange', { event, user: session?.user ?? null });
+      
+      // Check for password recovery (both event and session analysis)
+      if (event === 'PASSWORD_RECOVERY' || isRecoverySession(session)) {
+        log('Password recovery detected in auth state change', 'Showing recovery form');
+        showRecoveryForm();
+        return; // Don't run the normal login flow
+      }
+      
       if (session?.user?.email) {
         setSignedIn(session.user.email);
         await enforceMfa();
       } else {
         setSignedOut();
-      }
-      if (event === 'PASSWORD_RECOVERY') {
-        signinCard.classList.add('hide');
-        signupCard.classList.add('hide');
-        forgotCard.classList.add('hide');
-        recoveryCard.classList.remove('hide');
       }
     });
 
@@ -767,23 +826,53 @@
       if (error) forgotMsg.textContent = 'Error: ' + error.message;
       else { forgotMsg.textContent = 'Reset email sent. Check your inbox.'; log('resetPasswordForEmail', data); }
     });
+
     recoveryForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       recoveryMsg.textContent = 'Updating password...';
       const newPassword = document.getElementById('rp-password').value;
       
-      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
-      
-      if (error) {
-        recoveryMsg.textContent = 'Error: ' + error.message;
-        log('Password update error', error);
-      } else {
-        recoveryMsg.textContent = 'Password updated successfully! You are now signed in.';
-        log('Password updated', data);
+      try {
+        // If we have a stored recovery code, use verifyOtp method
+        if (window.recoveryCode) {
+          log('Using recovery code for password reset', window.recoveryCode);
+          
+          const { data, error } = await supabase.auth.verifyOtp({
+            token_hash: window.recoveryCode,
+            type: 'recovery'
+          });
+          
+          if (error) {
+            recoveryMsg.textContent = 'Recovery verification failed: ' + error.message;
+            log('Recovery verification error', error);
+            return;
+          }
+          
+          log('Recovery verification successful', data);
+        }
         
-        // Hide recovery form and show normal UI
-        recoveryCard.classList.add('hide');
-        await refreshSession();
+        // Now update the password
+        const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+        
+        if (error) {
+          recoveryMsg.textContent = 'Password update failed: ' + error.message;
+          log('Password update error', error);
+        } else {
+          recoveryMsg.textContent = 'Password updated successfully! Please sign in with your new password.';
+          log('Password updated', data);
+          
+          // Clear recovery code and redirect to login
+          window.recoveryCode = null;
+          recoveryCard.classList.add('hide');
+          signinCard.classList.remove('hide');
+          
+          // Clear any existing session and show login form
+          await supabase.auth.signOut();
+          setSignedOut();
+        }
+      } catch (err) {
+        recoveryMsg.textContent = 'An error occurred: ' + err.message;
+        log('Recovery process error', err);
       }
     });
 
@@ -876,35 +965,5 @@
     // ===== Session extension
     extendSessionBtn.addEventListener('click', extendSession);
   </script>
-  <!-- Add this button temporarily -->
-<button onclick="testRecovery()">Test Recovery Detection</button>
-
-<script>
-function testRecovery() {
-  // Get current session
-  supabase.auth.getSession().then(({data: {session}}) => {
-    console.log('Current session:', session);
-    
-    if (session?.access_token) {
-      try {
-        const tokenPayload = JSON.parse(atob(session.access_token.split('.')[1]));
-        console.log('Token payload:', tokenPayload);
-        console.log('Auth methods (amr):', tokenPayload.amr);
-        
-        const isRecovery = tokenPayload.amr?.some(method => method.method === 'recovery');
-        console.log('Is recovery session?', isRecovery);
-        
-        if (isRecovery) {
-          document.getElementById('recovery-card').classList.remove('hide');
-          document.getElementById('signin-card').classList.add('hide');
-          document.getElementById('mfa-card').classList.add('hide');
-        }
-      } catch (error) {
-        console.error('Token parsing error:', error);
-      }
-    }
-  });
-}
-</script>
 </body>
 </html>
