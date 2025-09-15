@@ -5,7 +5,7 @@ const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'implicit'  // Change from 'pkce' to 'implicit'
+    detectSessionInUrl: true
+    // Remove flowType completely - let Supabase use default
   }
 });
