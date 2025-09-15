@@ -320,8 +320,14 @@
       try {
         const tokenPayload = JSON.parse(atob(session.access_token.split('.')[1]));
         const authMethods = tokenPayload.amr || [];
-        const isRecovery = authMethods.some(method => method.method === 'recovery');
-        log('Recovery session check', { authMethods, isRecovery });
+        
+        // Check for both 'recovery' and 'otp' methods (Supabase sometimes uses 'otp' for password reset)
+        const isRecovery = authMethods.some(method => 
+          method.method === 'recovery' || 
+          (method.method === 'otp' && window.location.href.includes('type=recovery'))
+        );
+        
+        log('Recovery session check', { authMethods, isRecovery, url: window.location.href });
         return isRecovery;
       } catch (error) {
         log('Token parsing error', error);
