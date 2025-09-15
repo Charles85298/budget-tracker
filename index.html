@@ -520,28 +520,12 @@
     // ===== Redirect handling (email confirm / recovery)
     async function handleRedirect() {
       const href = location.href;
-      const urlParams = new URLSearchParams(window.location.search);
       log('URL on load', href);
-      log('URL parameters', Object.fromEntries(urlParams));
-
-      // Check for various auth-related parameters
-      if (href.includes('code=') || href.includes('access_token=') || href.includes('token=')) {
+      if (href.includes('code=') || href.includes('access_token=')) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(href);
-        if (error) {
-          log('exchangeCodeForSession error', error.message);
-        } else {
-          log('exchangeCodeForSession data', data);
-          
-          // Check if this is a password recovery
-          if (urlParams.get('type') === 'recovery' || data?.user) {
-            log('Password recovery detected', 'Showing recovery form');
-            // The onAuthStateChange will handle showing the recovery form
-          }
-        }
-        
-        // Clean up the URL after processing
-        const cleanUrl = window.location.origin + window.location.pathname;
-        history.replaceState({}, document.title, cleanUrl);
+        if (error) log('exchangeCodeForSession error', error.message);
+        else log('exchangeCodeForSession data', data);
+        history.replaceState({}, document.title, '/budget-tracker/');
       }
     }
     await handleRedirect();
@@ -767,11 +751,22 @@
     });
     recoveryForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      recoveryMsg.textContent = '...';
+      recoveryMsg.textContent = 'Updating password...';
       const newPassword = document.getElementById('rp-password').value;
+      
       const { data, error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) recoveryMsg.textContent = 'Error: ' + error.message;
-      else { recoveryMsg.textContent = 'Password updated. You are signed in.'; log('updateUser (password)', data); await refreshSession(); }
+      
+      if (error) {
+        recoveryMsg.textContent = 'Error: ' + error.message;
+        log('Password update error', error);
+      } else {
+        recoveryMsg.textContent = 'Password updated successfully! You are now signed in.';
+        log('Password updated', data);
+        
+        // Hide recovery form and show normal UI
+        recoveryCard.classList.add('hide');
+        await refreshSession();
+      }
     });
 
     // ===== Sign out
