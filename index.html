@@ -140,6 +140,18 @@
     <div id="new-password-message" class="message hide"></div>
   </div>
 
+  <!-- MFA Challenge for Password Change -->
+  <div class="card hide" id="mfa-challenge-section">
+    <h2>MFA Required</h2>
+    <p>Enter your 6-digit authenticator code to confirm password change.</p>
+    <div class="form-group">
+      <label>Authenticator Code:</label>
+      <input type="text" id="mfa-challenge-code" placeholder="123456" maxlength="6" />
+    </div>
+    <button onclick="verifyMFAAndUpdatePassword()">Verify & Update Password</button>
+    <div id="mfa-challenge-message" class="message hide"></div>
+  </div>
+
   <!-- Sign Out Button (hidden when logged out) -->
   <div class="card hide" id="signout-section">
     <button onclick="signOut()">Sign Out</button>
@@ -156,6 +168,12 @@
     window.resetPassword = resetPassword;
     window.togglePasswordReset = togglePasswordReset;
     window.updatePassword = updatePassword;
+    window.verifyMFAAndUpdatePassword = verifyMFAAndUpdatePassword;
+
+    // Store for MFA challenge
+    let currentChallengeId = null;
+    let currentFactorId = null;
+    let pendingPassword = null;
 
     // Update UI based on login status
     function updateStatus(user, isPasswordRecovery = false) {
@@ -360,7 +378,13 @@
         });
 
         if (error) {
-          showMessage('new-password-message', error.message, true);
+          // Check if AAL2 (MFA) is required
+          if (error.message?.includes('AAL2') || error.message?.includes('MFA')) {
+            showMessage('new-password-message', 'MFA verification required to change password');
+            await initiatePasswordMFAChallenge(newPassword);
+          } else {
+            showMessage('new-password-message', error.message, true);
+          }
         } else {
           showMessage('new-password-message', 'Password updated successfully! Redirecting to login...');
           document.getElementById('new-password').value = '';
@@ -372,6 +396,107 @@
         }
       } catch (err) {
         showMessage('new-password-message', 'An error occurred while updating password', true);
+      }
+    }
+
+    // Initiate MFA challenge for password change
+    async function initiatePasswordMFAChallenge(password) {
+      try {
+        // Store password for after MFA verification
+        pendingPassword = password;
+        
+        // Get user's MFA factors
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (factorsError || !factors?.totp?.length) {
+          showMessage('new-password-message', 'No MFA factors found', true);
+          return;
+        }
+
+        // Use first verified TOTP factor
+        const totpFactor = factors.totp.find(f => f.status === 'verified');
+        if (!totpFactor) {
+          showMessage('new-password-message', 'No verified TOTP factor found', true);
+          return;
+        }
+
+        currentFactorId = totpFactor.id;
+
+        // Create MFA challenge
+        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+          factorId: currentFactorId
+        });
+
+        if (challengeError) {
+          showMessage('new-password-message', 'Failed to create MFA challenge: ' + challengeError.message, true);
+          return;
+        }
+
+        currentChallengeId = challenge.id;
+        
+        // Show MFA challenge form
+        document.getElementById('new-password-section').classList.add('hide');
+        document.getElementById('mfa-challenge-section').classList.remove('hide');
+        
+      } catch (error) {
+        showMessage('new-password-message', 'Error setting up MFA challenge', true);
+      }
+    }
+
+    // Verify MFA and update password
+    async function verifyMFAAndUpdatePassword() {
+      const code = document.getElementById('mfa-challenge-code').value;
+      
+      hideMessage('mfa-challenge-message');
+
+      if (!code || code.length !== 6) {
+        showMessage('mfa-challenge-message', 'Please enter a 6-digit code', true);
+        return;
+      }
+
+      if (!currentChallengeId || !currentFactorId || !pendingPassword) {
+        showMessage('mfa-challenge-message', 'Invalid challenge state', true);
+        return;
+      }
+
+      try {
+        // Verify MFA code
+        const { data, error: verifyError } = await supabase.auth.mfa.verify({
+          factorId: currentFactorId,
+          challengeId: currentChallengeId,
+          code: code
+        });
+
+        if (verifyError) {
+          showMessage('mfa-challenge-message', 'Invalid code: ' + verifyError.message, true);
+          return;
+        }
+
+        showMessage('mfa-challenge-message', 'MFA verified! Updating password...');
+
+        // Now try password update again (should work with AAL2)
+        const { data: updateData, error: updateError } = await supabase.auth.updateUser({ 
+          password: pendingPassword 
+        });
+
+        if (updateError) {
+          showMessage('mfa-challenge-message', 'Password update failed: ' + updateError.message, true);
+        } else {
+          showMessage('mfa-challenge-message', 'Password updated successfully! Redirecting to login...');
+          
+          // Clear stored values
+          currentChallengeId = null;
+          currentFactorId = null;
+          pendingPassword = null;
+          document.getElementById('mfa-challenge-code').value = '';
+          
+          // Redirect back to main login page
+          setTimeout(() => {
+            window.location.href = window.location.origin + window.location.pathname;
+          }, 2000);
+        }
+
+      } catch (error) {
+        showMessage('mfa-challenge-message', 'Error verifying MFA code', true);
       }
     }
 
