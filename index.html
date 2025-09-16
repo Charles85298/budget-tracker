@@ -330,103 +330,94 @@
 
     // Main app initialization following official Supabase MFA pattern
     async function initializeApp() {
+      console.log('Initializing app...');
+      console.log('Supabase client:', supabase);
+      
       try {
-        console.log('Initializing app...');
-        console.log('Supabase client:', supabase);
-        
         // Get current session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Session error:', error);
-          showAuthSection();
-          return;
         }
 
         // Check if this is a password recovery flow
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('page') === 'change-password' && session?.user) {
           showPasswordRecoveryScreen(session.user);
+          hideLoadingScreen();
           return;
         }
 
         if (session?.user) {
-          // User is logged in - check AAL level (official Supabase pattern)
-          await handleAuthenticatedUser(session.user);
+          // User is logged in - check AAL level using official pattern
+          await handleAuthenticatedUserWithAAL(session.user);
         } else {
           showAuthSection();
         }
       } catch (error) {
         console.error('App initialization error:', error);
         showAuthSection();
-      } finally {
-        hideLoadingScreen();
       }
+      
+      // Always hide loading screen (following official docs pattern)
+      hideLoadingScreen();
     }
 
-    // Handle authenticated user following official AAL checking pattern
-    async function handleAuthenticatedUser(user) {
+    // Handle authenticated user following EXACT official AAL checking pattern
+    async function handleAuthenticatedUserWithAAL(user) {
+      const [readyToShow, setReadyToShow] = [false, (val) => console.log('Ready to show:', val)];
+      const [showMFAScreen, setShowMFAScreen] = [false, (val) => console.log('Show MFA screen:', val)];
+      
       try {
-        // This is the key method from official Supabase docs
-        const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         
-        if (aalError) {
-          console.error('AAL check error:', aalError);
+        if (error) {
+          console.error('AAL error:', error);
           showMainApp(user);
           return;
         }
 
-        console.log('AAL Data:', aalData);
+        console.log('AAL data:', data);
 
-        // Official Supabase pattern: check if MFA challenge is needed
-        if (aalData.nextLevel === 'aal2' && aalData.nextLevel !== aalData.currentLevel) {
+        // Official pattern: check if MFA challenge is needed
+        if (data.nextLevel === 'aal2' && data.nextLevel !== data.currentLevel) {
           // User has MFA enrolled but hasn't completed challenge
-          await showMFAChallengeScreen(user);
+          await showMFAChallengeScreenOfficial(user);
         } else {
           // User is fully authenticated
           showMainApp(user);
         }
       } catch (error) {
-        console.error('Error handling authenticated user:', error);
+        console.error('Error in AAL check:', error);
         showMainApp(user);
       }
     }
 
-    // Show MFA challenge screen (following official docs)
-    async function showMFAChallengeScreen(user) {
+    // Show MFA challenge screen (following EXACT official docs pattern)
+    async function showMFAChallengeScreenOfficial(user) {
       try {
         currentUser = user;
         
-        // Get available MFA factors
-        const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+        // Official pattern: get factors and create challenge immediately
+        const factors = await supabase.auth.mfa.listFactors();
         
-        if (factorsError || !factorsData?.totp?.length) {
-          console.error('No MFA factors found:', factorsError);
+        if (factors.error) {
+          console.error('Factors error:', factors.error);
           showMainApp(user);
           return;
         }
 
-        const verifiedFactor = factorsData.totp.find(f => f.status === 'verified');
-        if (!verifiedFactor) {
-          console.error('No verified TOTP factors found');
+        const totpFactor = factors.data.totp[0];
+        if (!totpFactor) {
+          console.error('No TOTP factors found');
           showMainApp(user);
           return;
         }
 
-        // Create challenge
-        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
-          factorId: verifiedFactor.id
-        });
-
-        if (challengeError) {
-          console.error('Failed to create MFA challenge:', challengeError);
-          showMainApp(user);
-          return;
-        }
-
+        // Store factor ID for verification
         challengeData = {
-          challengeId: challenge.id,
-          factorId: verifiedFactor.id
+          factorId: totpFactor.id
         };
 
         hideAllScreens();
@@ -786,7 +777,7 @@
       hideMessage('password-mfa-message');
     }
 
-    // MFA Challenge functions (for login)
+    // MFA Challenge verification (following EXACT official docs pattern)
     async function verifyMFAChallenge() {
       const code = document.getElementById('mfa-challenge-input').value;
       
@@ -797,20 +788,30 @@
         return;
       }
 
-      if (!challengeData) {
-        showMessage('mfa-challenge-message', 'No active challenge', 'error');
+      if (!challengeData || !challengeData.factorId) {
+        showMessage('mfa-challenge-message', 'No active MFA session', 'error');
         return;
       }
 
       try {
-        const { data, error } = await supabase.auth.mfa.verify({
+        // Official pattern: create challenge and verify immediately
+        const challenge = await supabase.auth.mfa.challenge({ 
+          factorId: challengeData.factorId 
+        });
+        
+        if (challenge.error) {
+          showMessage('mfa-challenge-message', 'Challenge error: ' + challenge.error.message, 'error');
+          return;
+        }
+
+        const verify = await supabase.auth.mfa.verify({
           factorId: challengeData.factorId,
-          challengeId: challengeData.challengeId,
-          code: code
+          challengeId: challenge.data.id,
+          code: code,
         });
 
-        if (error) {
-          showMessage('mfa-challenge-message', 'Invalid code: ' + error.message, 'error');
+        if (verify.error) {
+          showMessage('mfa-challenge-message', 'Invalid code: ' + verify.error.message, 'error');
           return;
         }
 
@@ -820,9 +821,13 @@
         challengeData = null;
         document.getElementById('mfa-challenge-input').value = '';
 
-        // The auth state change will redirect to main app
+        // The session refresh happens automatically - redirect to main app
+        setTimeout(() => {
+          showMainApp(currentUser);
+        }, 1000);
 
       } catch (error) {
+        console.error('MFA verification error:', error);
         showMessage('mfa-challenge-message', 'Error verifying MFA code', 'error');
       }
     }
@@ -834,15 +839,14 @@
       showAuthSection();
     }
 
-    // MFA Enrollment functions (following official docs pattern)
+    // MFA Enrollment (following EXACT official docs pattern)
     async function startMFAEnrollment() {
       hideMessage('enrollment-message');
       
       try {
-        // Official Supabase enrollment pattern
+        // Official Supabase enrollment pattern - no friendlyName in basic call
         const { data, error } = await supabase.auth.mfa.enroll({
           factorType: 'totp',
-          friendlyName: 'Authenticator App'
         });
 
         if (error) {
@@ -852,11 +856,11 @@
 
         enrollmentData = data;
 
-        // Display QR code (official pattern)
+        // Official pattern: show QR code as data URL in img tag
         const qrCodeEl = document.getElementById('qr-code-display');
         qrCodeEl.innerHTML = `<img src="${data.totp.qr_code}" alt="QR Code for MFA setup" style="max-width: 200px;">`;
         
-        // Display secret key
+        // Display secret key for manual entry
         document.getElementById('secret-key-display').textContent = data.totp.secret;
 
         // Show enrollment section
@@ -864,6 +868,7 @@
         document.getElementById('mfa-enrollment-section').classList.remove('hide');
         
       } catch (error) {
+        console.error('MFA enrollment error:', error);
         showMessage('enrollment-message', 'Error starting MFA enrollment', 'error');
       }
     }
@@ -884,24 +889,24 @@
       }
 
       try {
-        // Official Supabase enrollment verification pattern
-        const challengeResponse = await supabase.auth.mfa.challenge({
+        // Official pattern: challenge then verify
+        const challenge = await supabase.auth.mfa.challenge({
           factorId: enrollmentData.id
         });
 
-        if (challengeResponse.error) {
-          showMessage('enrollment-message', 'Failed to create challenge: ' + challengeResponse.error.message, 'error');
+        if (challenge.error) {
+          showMessage('enrollment-message', 'Failed to create challenge: ' + challenge.error.message, 'error');
           return;
         }
 
-        const verifyResponse = await supabase.auth.mfa.verify({
+        const verify = await supabase.auth.mfa.verify({
           factorId: enrollmentData.id,
-          challengeId: challengeResponse.data.id,
-          code: code
+          challengeId: challenge.data.id,
+          code: code,
         });
 
-        if (verifyResponse.error) {
-          showMessage('enrollment-message', 'Invalid code: ' + verifyResponse.error.message, 'error');
+        if (verify.error) {
+          showMessage('enrollment-message', 'Invalid code: ' + verify.error.message, 'error');
           return;
         }
 
@@ -915,6 +920,7 @@
         await updateMFAStatus();
         
       } catch (error) {
+        console.error('MFA enrollment error:', error);
         showMessage('enrollment-message', 'Error verifying MFA enrollment', 'error');
       }
     }
