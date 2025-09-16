@@ -6,6 +6,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: true,
     detectSessionInUrl: true,
-    flowType: 'implicit'  // Changed from 'pkce' for password reset
+    flowType: 'pkce' // More secure
   }
 });
