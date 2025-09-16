@@ -112,7 +112,20 @@
       <input type="password" id="signin-password" placeholder="Password" />
     </div>
     <button onclick="signIn()">Sign In</button>
+    <button onclick="togglePasswordReset()" style="background: #6c757d;">Forgot Password?</button>
     <div id="signin-message" class="message hide"></div>
+  </div>
+
+  <!-- Password Reset Form (hidden by default) -->
+  <div class="card hide" id="reset-section">
+    <h2>Reset Password</h2>
+    <div class="form-group">
+      <label>Email:</label>
+      <input type="email" id="reset-email" placeholder="you@example.com" />
+    </div>
+    <button onclick="resetPassword()">Send Reset Email</button>
+    <button onclick="togglePasswordReset()" style="background: #6c757d;">Back to Sign In</button>
+    <div id="reset-message" class="message hide"></div>
   </div>
 
   <!-- Sign Out Button (hidden when logged out) -->
@@ -128,6 +141,8 @@
     window.signUp = signUp;
     window.signIn = signIn;
     window.signOut = signOut;
+    window.resetPassword = resetPassword;
+    window.togglePasswordReset = togglePasswordReset;
 
     // Update UI based on login status
     function updateStatus(user) {
@@ -234,6 +249,51 @@
         }
       } catch (err) {
         console.error('Sign out failed:', err);
+      }
+    }
+
+    // Reset password function
+    async function resetPassword() {
+      const email = document.getElementById('reset-email').value;
+
+      hideMessage('reset-message');
+
+      if (!email) {
+        showMessage('reset-message', 'Please enter your email address', true);
+        return;
+      }
+
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + window.location.pathname
+        });
+
+        if (error) {
+          showMessage('reset-message', error.message, true);
+        } else {
+          showMessage('reset-message', 'Password reset email sent! Check your inbox.');
+          document.getElementById('reset-email').value = '';
+        }
+      } catch (err) {
+        showMessage('reset-message', 'An error occurred while sending reset email', true);
+      }
+    }
+
+    // Toggle between sign in and password reset forms
+    function togglePasswordReset() {
+      const signinSection = document.getElementById('signin-section');
+      const resetSection = document.getElementById('reset-section');
+
+      if (resetSection.classList.contains('hide')) {
+        // Show reset form, hide sign in
+        signinSection.classList.add('hide');
+        resetSection.classList.remove('hide');
+        hideMessage('signin-message');
+      } else {
+        // Show sign in form, hide reset
+        resetSection.classList.add('hide');
+        signinSection.classList.remove('hide');
+        hideMessage('reset-message');
       }
     }
 
