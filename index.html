@@ -559,20 +559,33 @@
     // ===== Redirect handling (email confirm / recovery)
     async function handleRedirect() {
       const href = location.href;
-      const urlParams = new URLSearchParams(window.location.search);
+      
+      // Parse both query string and hash fragment for parameters
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      
+      // Combine both sets of parameters
+      const allParams = new URLSearchParams();
+      for (const [key, value] of searchParams) allParams.set(key, value);
+      for (const [key, value] of hashParams) allParams.set(key, value);
+      
       log('URL on load', href);
-      log('URL parameters', Object.fromEntries(urlParams));
+      log('Search parameters', Object.fromEntries(searchParams));
+      log('Hash parameters', Object.fromEntries(hashParams));
+      log('All parameters', Object.fromEntries(allParams));
 
       // Check for password recovery code specifically
-      const recoveryCode = urlParams.get('code');
-      const type = urlParams.get('type');
+      const recoveryCode = allParams.get('code') || searchParams.get('code');
+      const type = allParams.get('type') || searchParams.get('type');
+      const accessToken = allParams.get('access_token');
       
-      if (recoveryCode && (type === 'recovery' || href.includes('recovery'))) {
+      if (type === 'recovery' || (accessToken && href.includes('type=recovery'))) {
         log('Password recovery link detected', 'Showing recovery form directly');
         showRecoveryForm();
         
         // Store the recovery code for use in password update
-        window.recoveryCode = recoveryCode;
+        if (recoveryCode) window.recoveryCode = recoveryCode;
+        if (accessToken) window.recoveryAccessToken = accessToken;
         
         // Clean up URL
         const cleanUrl = window.location.origin + window.location.pathname;
@@ -586,11 +599,12 @@
         if (error) {
           log('exchangeCodeForSession error', error.message);
           
-          // If this fails but we have a code, it might be a recovery link
-          if (recoveryCode) {
+          // If this fails but we have recovery indicators, treat as recovery
+          if (type === 'recovery' || href.includes('type=recovery')) {
             log('Session exchange failed, treating as recovery', 'Showing recovery form');
             showRecoveryForm();
-            window.recoveryCode = recoveryCode;
+            if (recoveryCode) window.recoveryCode = recoveryCode;
+            if (accessToken) window.recoveryAccessToken = accessToken;
           }
         } else {
           log('exchangeCodeForSession data', data);
