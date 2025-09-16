@@ -321,13 +321,33 @@
         const tokenPayload = JSON.parse(atob(session.access_token.split('.')[1]));
         const authMethods = tokenPayload.amr || [];
         
-        // Check for both 'recovery' and 'otp' methods (Supabase sometimes uses 'otp' for password reset)
-        const isRecovery = authMethods.some(method => 
-          method.method === 'recovery' || 
-          (method.method === 'otp' && window.location.href.includes('type=recovery'))
-        );
+        // Check for recovery method or recent recovery_sent_at timestamp
+        const isRecoveryMethod = authMethods.some(method => method.method === 'recovery');
         
-        log('Recovery session check', { authMethods, isRecovery, url: window.location.href });
+        // Check if recovery was sent recently (within last 10 minutes)
+        const recoverySentAt = session.user.recovery_sent_at;
+        const recentRecovery = recoverySentAt && 
+          (Date.now() - new Date(recoverySentAt).getTime()) < (10 * 60 * 1000);
+        
+        // Check if URL came from Supabase verification (has access_token but no type param)
+        const hasAccessToken = window.location.hash.includes('access_token=');
+        const noTypeParam = !window.location.hash.includes('type=') && !window.location.search.includes('type=');
+        const likelyFromVerification = hasAccessToken && noTypeParam && recentRecovery;
+        
+        const isRecovery = isRecoveryMethod || likelyFromVerification;
+        
+        log('Recovery session check', { 
+          authMethods, 
+          isRecoveryMethod, 
+          recoverySentAt, 
+          recentRecovery, 
+          hasAccessToken, 
+          noTypeParam, 
+          likelyFromVerification, 
+          isRecovery, 
+          url: window.location.href 
+        });
+        
         return isRecovery;
       } catch (error) {
         log('Token parsing error', error);
