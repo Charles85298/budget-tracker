@@ -2,1008 +2,251 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Budget Tracker – Email/Password + REQUIRED MFA (TOTP)</title>
+  <title>Simple Login Test</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { font-family: system-ui, Arial; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
-    h2 { margin-top: 1.5rem; }
-    form { display: grid; gap: 8px; max-width: 460px; }
-    input, button { padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; }
-    button { cursor: pointer; }
-    button:disabled { opacity: .6; cursor: not-allowed; }
-    .timeout-warning { position: fixed; top: 20px; right: 20px; background: #ff6b35; color: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; max-width: 300px; }
-    .timeout-warning button { background: white; color: #ff6b35; border: none; padding: 8px 16px; border-radius: 4px; margin-top: 10px; cursor: pointer; }
-    .remember-email { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
-    .row { display: flex; gap: 10px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
-    .card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 14px; margin: 10px 0; }
-    .hide { display: none; }
-    .ok { color:#0a7; } .err { color:#c00; }
-    pre { background:#f6f6f6; padding:10px; border-radius:8px; overflow:auto; }
-    .secret { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; background:#fff; padding:6px 8px; border:1px dashed #bbb; border-radius:8px; display:inline-block; }
-    img.qr { width: 220px; height: 220px; border: 1px solid #ddd; border-radius: 8px; }
-    .gate { opacity: .45; pointer-events: none; filter: grayscale(0.2); }
+    body { 
+      font-family: system-ui, Arial; 
+      max-width: 600px; 
+      margin: 2rem auto; 
+      padding: 1rem; 
+    }
+    .status {
+      font-size: 1.2em;
+      font-weight: bold;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+    }
+    .logged-in { 
+      background: #d4edda; 
+      color: #155724; 
+      border: 1px solid #c3e6cb;
+    }
+    .logged-out { 
+      background: #f8d7da; 
+      color: #721c24; 
+      border: 1px solid #f5c6cb;
+    }
+    .card { 
+      border: 1px solid #ddd; 
+      border-radius: 8px; 
+      padding: 1rem; 
+      margin: 1rem 0; 
+    }
+    .form-group { 
+      margin: 0.5rem 0; 
+    }
+    label { 
+      display: block; 
+      margin-bottom: 0.25rem; 
+    }
+    input { 
+      width: 100%; 
+      padding: 0.5rem; 
+      border: 1px solid #ccc; 
+      border-radius: 4px; 
+    }
+    button { 
+      background: #007bff; 
+      color: white; 
+      border: none; 
+      padding: 0.75rem 1rem; 
+      border-radius: 4px; 
+      cursor: pointer; 
+      margin: 0.5rem 0; 
+    }
+    button:hover { 
+      background: #0056b3; 
+    }
+    .hide { 
+      display: none; 
+    }
+    .message { 
+      padding: 0.5rem; 
+      margin: 0.5rem 0; 
+      border-radius: 4px; 
+    }
+    .success { 
+      background: #d4edda; 
+      color: #155724; 
+    }
+    .error { 
+      background: #f8d7da; 
+      color: #721c24; 
+    }
   </style>
 </head>
 <body>
-  <h1>Budget Tracker – Email/Password + REQUIRED MFA (TOTP)</h1>
+  <h1>Simple Login Test</h1>
 
-  <p id="status" class="err">Not signed in.</p>
-  <div class="row">
-    <button id="signout" class="hide">Sign out</button>
-    <span id="session-timer" class="hide"></span>
+  <!-- Login Status Display -->
+  <div id="status" class="status logged-out">
+    Not signed in
   </div>
 
-  <!-- Session Timeout Warning -->
-  <div id="timeout-warning" class="timeout-warning hide">
-    <div><strong>Session Expiring Soon!</strong></div>
-    <div>Your session will expire in <span id="timeout-countdown">5:00</span></div>
-    <button id="extend-session">Stay Logged In</button>
-  </div>
-
-  <!-- Auth: Sign up / Sign in -->
-  <div class="card" id="signup-card">
-    <h2>Create account</h2>
-    <form id="signup-form">
-      <label>Email <input id="su-email" type="email" required placeholder="you@example.com" /></label>
-      <label>Password <input id="su-password" type="password" required minlength="6" placeholder="At least 6 characters" /></label>
-      <button id="signup-btn" type="submit">Sign up</button>
-      <div id="signup-msg"></div>
-    </form>
-  </div>
-
-  <div class="card" id="signin-card">
-    <h2>Sign in</h2>
-    <form id="signin-form">
-      <label>Email <input id="si-email" type="email" required placeholder="you@example.com" /></label>
-      <label>Password <input id="si-password" type="password" required placeholder="Your password" /></label>
-      <div class="remember-email">
-        <input type="checkbox" id="remember-email" checked />
-        <label for="remember-email">Remember my email address</label>
-      </div>
-      <button id="signin-btn" type="submit">Sign in</button>
-      <div id="signin-msg"></div>
-    </form>
-    <button id="forgot-btn">Forgot password?</button>
-  </div>
-
-  <!-- Password reset -->
-  <div class="card hide" id="forgot-card">
-    <h2>Reset password</h2>
-    <form id="forgot-form">
-      <label>Email <input id="fp-email" type="email" required placeholder="you@example.com" /></label>
-      <button id="forgot-send" type="submit">Send reset email</button>
-      <div id="forgot-msg"></div>
-    </form>
-  </div>
-
-  <div class="card hide" id="recovery-card">
-    <h2>Set a new password</h2>
-    <form id="recovery-form">
-      <label>New password <input id="rp-password" type="password" required minlength="6" /></label>
-      <button id="recovery-save" type="submit">Save new password</button>
-      <div id="recovery-msg"></div>
-    </form>
-  </div>
-
-  <!-- ===== REQUIRED MFA (TOTP) SECTION ===== -->
-  <div class="card hide" id="mfa-card">
-    <h2>MFA Required – Set up TOTP</h2>
-    <p id="mfa-status" class="err">MFA not enabled. You must complete setup to continue.</p>
-
-    <div id="mfa-enroll-block">
-      <h3>Enable MFA (TOTP)</h3>
-      <button id="mfa-start" type="button">Generate QR / Setup key</button>
-
-      <div id="mfa-enroll-ui" class="hide">
-        <div class="row">
-          <img id="mfa-qr" class="qr" alt="TOTP QR" />
-          <div>
-            <div>Setup key (Base32): <span id="mfa-secret" class="secret"></span></div>
-            <div class="row"><a id="mfa-otpauth" href="#" rel="noopener">Add on this phone</a></div>
-          </div>
-        </div>
-        <div class="row">
-          <label>6-digit code <input id="mfa-code" type="text" inputmode="numeric" pattern="\\d{6}" placeholder="123456" /></label>
-          <button id="mfa-verify" type="button">Verify & Activate</button>
-        </div>
-        <div id="mfa-enroll-msg"></div>
-      </div>
+  <!-- Sign Up Form -->
+  <div class="card" id="signup-section">
+    <h2>Create Account</h2>
+    <div class="form-group">
+      <label>Email:</label>
+      <input type="email" id="signup-email" placeholder="you@example.com" />
     </div>
-
-    <div id="mfa-already-block" class="hide">
-      <h3 class="ok">MFA is enabled</h3>
-      <div id="mfa-factors"></div>
-      <p class="ok">You can now use the app normally.</p>
+    <div class="form-group">
+      <label>Password:</label>
+      <input type="password" id="signup-password" placeholder="Password" />
     </div>
+    <button onclick="signUp()">Sign Up</button>
+    <div id="signup-message" class="message hide"></div>
   </div>
 
-  <!-- MFA during sign-in (when already enrolled) -->
-  <div class="card hide" id="mfa-login-card">
-    <h2>Verify MFA Code</h2>
-    <p>Enter the 6-digit code from your authenticator app.</p>
-    <div class="row">
-      <input id="mfa-login-code" type="text" inputmode="numeric" pattern="\\d{6}" placeholder="123456" />
-      <button id="mfa-login-verify" type="button">Verify</button>
+  <!-- Sign In Form -->
+  <div class="card" id="signin-section">
+    <h2>Sign In</h2>
+    <div class="form-group">
+      <label>Email:</label>
+      <input type="email" id="signin-email" placeholder="you@example.com" />
     </div>
-    <div id="mfa-login-msg"></div>
+    <div class="form-group">
+      <label>Password:</label>
+      <input type="password" id="signin-password" placeholder="Password" />
+    </div>
+    <button onclick="signIn()">Sign In</button>
+    <div id="signin-message" class="message hide"></div>
   </div>
 
-  <!-- GATED APP CONTENT -->
-  <div id="app-gated" class="gate">
-    <div class="card">
-      <h2>Paychecks</h2>
-      <div class="row">
-        <button id="read" type="button">Load latest</button>
-      </div>
-      <pre id="out"></pre>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>Debug</h2>
-    <pre id="log"></pre>
+  <!-- Sign Out Button (hidden when logged out) -->
+  <div class="card hide" id="signout-section">
+    <button onclick="signOut()">Sign Out</button>
   </div>
 
   <script type="module">
     import { supabase } from './supabaseClient.js';
 
-    // ===== Elements
-    const statusEl = document.getElementById('status');
-    const logEl = document.getElementById('log');
-    const sessionTimerEl = document.getElementById('session-timer');
-    const timeoutWarningEl = document.getElementById('timeout-warning');
-    const timeoutCountdownEl = document.getElementById('timeout-countdown');
-    const extendSessionBtn = document.getElementById('extend-session');
+    // Make functions available globally
+    window.supabase = supabase;
+    window.signUp = signUp;
+    window.signIn = signIn;
+    window.signOut = signOut;
 
-    const signupCard = document.getElementById('signup-card');
-    const signinCard = document.getElementById('signin-card');
-    const signoutBtn = document.getElementById('signout');
-    const rememberEmailCheckbox = document.getElementById('remember-email');
+    // Update UI based on login status
+    function updateStatus(user) {
+      const statusEl = document.getElementById('status');
+      const signupSection = document.getElementById('signup-section');
+      const signinSection = document.getElementById('signin-section');
+      const signoutSection = document.getElementById('signout-section');
 
-    const signupForm = document.getElementById('signup-form');
-    const signupMsg = document.getElementById('signup-msg');
-    const signinForm = document.getElementById('signin-form');
-    const signinMsg = document.getElementById('signin-msg');
-
-    const forgotBtn = document.getElementById('forgot-btn');
-    const forgotCard = document.getElementById('forgot-card');
-    const forgotForm = document.getElementById('forgot-form');
-    const forgotMsg = document.getElementById('forgot-msg');
-
-    const recoveryCard = document.getElementById('recovery-card');
-    const recoveryForm = document.getElementById('recovery-form');
-    const recoveryMsg = document.getElementById('recovery-msg');
-
-    // MFA UI
-    const mfaCard = document.getElementById('mfa-card');
-    const mfaStatus = document.getElementById('mfa-status');
-    const mfaEnrollBlock = document.getElementById('mfa-enroll-block');
-    const mfaStartBtn = document.getElementById('mfa-start');
-    const mfaEnrollUI = document.getElementById('mfa-enroll-ui');
-    const mfaQR = document.getElementById('mfa-qr');
-    const mfaSecret = document.getElementById('mfa-secret');
-    const mfaOtpAuth = document.getElementById('mfa-otpauth');
-    const mfaCode = document.getElementById('mfa-code');
-    const mfaVerifyBtn = document.getElementById('mfa-verify');
-    const mfaEnrollMsg = document.getElementById('mfa-enroll-msg');
-    const mfaAlreadyBlock = document.getElementById('mfa-already-block');
-    const mfaFactorsDiv = document.getElementById('mfa-factors');
-
-    const mfaLoginCard = document.getElementById('mfa-login-card');
-    const mfaLoginCode = document.getElementById('mfa-login-code');
-    const mfaLoginVerifyBtn = document.getElementById('mfa-login-verify');
-    const mfaLoginMsg = document.getElementById('mfa-login-msg');
-
-    // App
-    const appGated = document.getElementById('app-gated');
-    const readBtn = document.getElementById('read');
-    const outEl = document.getElementById('out');
-
-    // ===== State
-    const REQUIRE_MFA = true;
-    const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-    const WARNING_TIME_MS = 25 * 60 * 1000; // 25 minutes (5 min warning)
-    
-    let pendingMfa = { factorId: null, challengeId: null };
-    let enrollFactorId = null;
-    let currentLoginId = null;
-    let sessionTimer = null;
-    let warningTimer = null;
-    let lastActivityTime = Date.now();
-
-    // ===== Helpers
-    const log = (label, val) => {
-      const msg = `${label}: ${typeof val === 'string' ? val : JSON.stringify(val, null, 2)}`;
-      logEl.textContent += msg + "\n\n";
-      console.log(label, val);
-    };
-
-    // Email storage management
-    const saveEmail = (email, remember) => {
-      if (remember) {
-        localStorage.setItem('budget_tracker_email', email);
+      if (user) {
+        statusEl.textContent = `Logged in as: ${user.email}`;
+        statusEl.className = 'status logged-in';
+        signupSection.classList.add('hide');
+        signinSection.classList.add('hide');
+        signoutSection.classList.remove('hide');
       } else {
-        localStorage.removeItem('budget_tracker_email');
+        statusEl.textContent = 'Not signed in';
+        statusEl.className = 'status logged-out';
+        signupSection.classList.remove('hide');
+        signinSection.classList.remove('hide');
+        signoutSection.classList.add('hide');
       }
-    };
+    }
 
-    const loadSavedEmail = () => {
-      const saved = localStorage.getItem('budget_tracker_email');
-      if (saved) {
-        document.getElementById('si-email').value = saved;
-        rememberEmailCheckbox.checked = true;
+    // Show message
+    function showMessage(elementId, message, isError = false) {
+      const el = document.getElementById(elementId);
+      el.textContent = message;
+      el.className = `message ${isError ? 'error' : 'success'}`;
+      el.classList.remove('hide');
+    }
+
+    // Hide message
+    function hideMessage(elementId) {
+      document.getElementById(elementId).classList.add('hide');
+    }
+
+    // Sign up function
+    async function signUp() {
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+
+      hideMessage('signup-message');
+
+      if (!email || !password) {
+        showMessage('signup-message', 'Please fill in all fields', true);
+        return;
       }
-    };
 
-    // Enhanced IP address detection with multiple fallbacks
-    const getClientIP = async () => {
       try {
-        // Try multiple IP services for reliability
-        const services = [
-          { url: 'https://api.ipify.org?format=json', key: 'ip' },
-          { url: 'https://httpbin.org/ip', key: 'origin' },
-          { url: 'https://api.myip.com', key: 'ip' }
-        ];
-        
-        for (const service of services) {
-          try {
-            const response = await fetch(service.url, { timeout: 3000 });
-            if (response.ok) {
-              const data = await response.json();
-              const ip = data[service.key];
-              if (ip && ip !== 'unknown') return ip;
-            }
-          } catch (serviceError) {
-            console.warn(`IP service ${service.url} failed:`, serviceError);
-            continue;
-          }
-        }
-        return 'unknown';
-      } catch {
-        return 'unknown';
-      }
-    };
-
-    // Enhanced error handling for database operations
-    const handleDatabaseError = (error, operation) => {
-      console.warn(`${operation} failed:`, error);
-      
-      // If RLS policies are blocking, show user-friendly message
-      if (error.message?.includes('policy') || error.message?.includes('permission')) {
-        console.info('Database security policies are working correctly');
-        return false; // Don't show error to user
-      }
-      
-      // For other errors, we might want to inform the user
-      if (error.message?.includes('network') || error.message?.includes('fetch')) {
-        log('Connection issue', 'Database temporarily unavailable');
-        return true; // Show connection error
-      }
-      
-      return false; // Don't show generic errors
-    };
-
-    // Test database connectivity
-    const testDatabaseConnections = async () => {
-      try {
-        log('Testing database connections', 'Starting connectivity test...');
-        
-        // Test basic connection
-        const { data: authTest, error: authError } = await supabase.auth.getSession();
-        if (authError) throw new Error(`Auth test failed: ${authError.message}`);
-        
-        // Test table access (these will return empty if RLS is working)
-        const { error: loginError } = await supabase.from('user_login_history').select('count').limit(1);
-        const { error: activityError } = await supabase.from('user_activity_log').select('count').limit(1);
-        const { error: failedError } = await supabase.from('failed_login_attempts').select('count').limit(1);
-        
-        if (loginError || activityError || failedError) {
-          log('Database table access', 'RLS policies active (expected)');
-        } else {
-          log('Database connectivity', 'All tables accessible');
-        }
-        
-        log('Database test', 'Connection successful');
-        return true;
-      } catch (error) {
-        log('Database test failed', error.message);
-        console.error('Database connectivity issue:', error);
-        return false;
-      }
-    };
-
-    // Helper function to detect if this is a recovery session
-    const isRecoverySession = (session) => {
-      if (!session?.user) return false;
-      
-      // Check if the access token indicates recovery method
-      try {
-        const tokenPayload = JSON.parse(atob(session.access_token.split('.')[1]));
-        const authMethods = tokenPayload.amr || [];
-        
-        // Check for recovery method or recent recovery_sent_at timestamp
-        const isRecoveryMethod = authMethods.some(method => method.method === 'recovery');
-        
-        // Check if recovery was sent recently (within last 10 minutes)
-        const recoverySentAt = session.user.recovery_sent_at;
-        const recentRecovery = recoverySentAt && 
-          (Date.now() - new Date(recoverySentAt).getTime()) < (10 * 60 * 1000);
-        
-        // Check if URL came from Supabase verification (has access_token but no type param)
-        const hasAccessToken = window.location.hash.includes('access_token=');
-        const noTypeParam = !window.location.hash.includes('type=') && !window.location.search.includes('type=');
-        const likelyFromVerification = hasAccessToken && noTypeParam && recentRecovery;
-        
-        const isRecovery = isRecoveryMethod || likelyFromVerification;
-        
-        log('Recovery session check', { 
-          authMethods, 
-          isRecoveryMethod, 
-          recoverySentAt, 
-          recentRecovery, 
-          hasAccessToken, 
-          noTypeParam, 
-          likelyFromVerification, 
-          isRecovery, 
-          url: window.location.href 
-        });
-        
-        return isRecovery;
-      } catch (error) {
-        log('Token parsing error', error);
-        return false;
-      }
-    };
-
-    // Activity tracking with improved error handling
-    const trackActivity = async (activityType, details = '') => {
-      lastActivityTime = Date.now();
-      
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && currentLoginId) {
-          const { error } = await supabase.from('user_activity_log').insert({
-            user_id: user.id,
-            login_id: currentLoginId,
-            activity_type: activityType,
-            page_url: window.location.href,
-            action_description: details
-          });
-          
-          if (error) {
-            const shouldShowError = handleDatabaseError(error, 'Activity tracking');
-            if (shouldShowError) {
-              log('Activity tracking issue', 'Temporary logging issue');
-            }
-          }
-        }
-      } catch (error) {
-        handleDatabaseError(error, 'Activity tracking');
-      }
-    };
-
-    // Session timeout management
-    const startSessionTimer = () => {
-      clearSessionTimers();
-      
-      // Warning timer (25 minutes)
-      warningTimer = setTimeout(() => {
-        showTimeoutWarning();
-      }, WARNING_TIME_MS);
-      
-      // Session timeout (30 minutes)
-      sessionTimer = setTimeout(() => {
-        handleSessionTimeout();
-      }, SESSION_TIMEOUT_MS);
-      
-      updateSessionDisplay();
-    };
-
-    const clearSessionTimers = () => {
-      if (warningTimer) clearTimeout(warningTimer);
-      if (sessionTimer) clearTimeout(sessionTimer);
-      timeoutWarningEl.classList.add('hide');
-    };
-
-    const showTimeoutWarning = () => {
-      timeoutWarningEl.classList.remove('hide');
-      startCountdown();
-    };
-
-    const startCountdown = () => {
-      let timeLeft = (SESSION_TIMEOUT_MS - WARNING_TIME_MS) / 1000; // 5 minutes in seconds
-      
-      const countdown = setInterval(() => {
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        timeoutCountdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        
-        if (timeLeft <= 0) {
-          clearInterval(countdown);
-          handleSessionTimeout();
-        }
-        timeLeft--;
-      }, 1000);
-    };
-
-    const handleSessionTimeout = async () => {
-      clearSessionTimers();
-      await logLogout('timeout');
-      await supabase.auth.signOut();
-      setSignedOut();
-      alert('Your session has expired due to inactivity. Please sign in again.');
-    };
-
-    const extendSession = () => {
-      trackActivity('session_extended', 'User manually extended session');
-      startSessionTimer();
-      timeoutWarningEl.classList.add('hide');
-    };
-
-    const updateSessionDisplay = () => {
-      if (sessionTimer) {
-        sessionTimerEl.textContent = 'Session active';
-        sessionTimerEl.classList.remove('hide');
-      } else {
-        sessionTimerEl.classList.add('hide');
-      }
-    };
-
-    // Login history tracking with improved error handling
-    const logSuccessfulLogin = async (method = 'email_password_totp') => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const clientIP = await getClientIP();
-          const { data, error } = await supabase.from('user_login_history').insert({
-            user_id: user.id,
-            login_method: method,
-            ip_address: clientIP,
-            user_agent: navigator.userAgent
-          }).select('login_id').single();
-          
-          if (error) {
-            const shouldShowError = handleDatabaseError(error, 'Login history tracking');
-            if (shouldShowError) {
-              log('Login tracking issue', 'Unable to record login details');
-            }
-          } else if (data) {
-            currentLoginId = data.login_id;
-            trackActivity('login_successful', `Login method: ${method}`);
-            log('Login tracked', `Login ID: ${currentLoginId}`);
-          }
-        }
-      } catch (error) {
-        handleDatabaseError(error, 'Login history tracking');
-      }
-    };
-
-    const logFailedLogin = async (email, reason) => {
-      try {
-        const clientIP = await getClientIP();
-        const { error } = await supabase.from('failed_login_attempts').insert({
+        const { data, error } = await supabase.auth.signUp({
           email: email,
-          failure_reason: reason,
-          ip_address: clientIP,
-          user_agent: navigator.userAgent
+          password: password
         });
-        
+
         if (error) {
-          handleDatabaseError(error, 'Failed login tracking');
-        }
-      } catch (error) {
-        handleDatabaseError(error, 'Failed login tracking');
-      }
-    };
-
-    const logLogout = async (reason = 'manual') => {
-      try {
-        if (currentLoginId) {
-          const { error } = await supabase.from('user_login_history')
-            .update({
-              logout_timestamp: new Date().toISOString(),
-              logout_reason: reason
-            })
-            .eq('login_id', currentLoginId);
-          
-          if (error) {
-            handleDatabaseError(error, 'Logout tracking');
-          } else {
-            trackActivity('logout', `Logout reason: ${reason}`);
-            log('Logout tracked', `Reason: ${reason}`);
-          }
-          currentLoginId = null;
-        }
-      } catch (error) {
-        handleDatabaseError(error, 'Logout tracking');
-      }
-    };
-
-    const gateApp = (blocked) => {
-      if (blocked) appGated.classList.add('gate');
-      else appGated.classList.remove('gate');
-    };
-
-    const setSignedIn = (email) => {
-      statusEl.textContent = `Signed in as: ${email}`;
-      statusEl.classList.remove('err'); statusEl.classList.add('ok');
-      signoutBtn.classList.remove('hide');
-      signupCard.classList.add('hide');
-      signinCard.classList.add('hide');
-      mfaCard.classList.remove('hide');
-      startSessionTimer();
-    };
-
-    const setSignedOut = () => {
-      statusEl.textContent = 'Not signed in.';
-      statusEl.classList.remove('ok'); statusEl.classList.add('err');
-      signoutBtn.classList.add('hide');
-      signupCard.classList.remove('hide');
-      signinCard.classList.remove('hide');
-      mfaCard.classList.add('hide');
-      mfaLoginCard.classList.add('hide');
-      clearSessionTimers();
-      gateApp(true);
-      
-      // Clear sensitive session data but preserve email if user chose to remember
-      const currentEmail = document.getElementById('si-email').value;
-      const rememberEmail = rememberEmailCheckbox.checked;
-      
-      if (!rememberEmail && currentEmail) {
-        localStorage.removeItem('budget_tracker_email');
-        document.getElementById('si-email').value = '';
-        rememberEmailCheckbox.checked = false;
-      }
-      
-      // Clear any cached session data
-      currentLoginId = null;
-      pendingMfa = { factorId: null, challengeId: null };
-    };
-
-    // Show recovery form
-    const showRecoveryForm = () => {
-      log('Showing recovery form', 'Password reset mode activated');
-      signupCard.classList.add('hide');
-      signinCard.classList.add('hide');
-      forgotCard.classList.add('hide');
-      mfaCard.classList.add('hide');
-      mfaLoginCard.classList.add('hide');
-      recoveryCard.classList.remove('hide');
-      
-      statusEl.textContent = 'Password recovery mode - set your new password';
-      statusEl.classList.remove('err');
-      statusEl.classList.add('ok');
-      signoutBtn.classList.remove('hide'); // Allow sign out during recovery
-    };
-
-    // ===== Redirect handling (email confirm / recovery)
-    async function handleRedirect() {
-      const href = location.href;
-      
-      // Parse both query string and hash fragment for parameters
-      const searchParams = new URLSearchParams(window.location.search);
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      
-      // Combine both sets of parameters
-      const allParams = new URLSearchParams();
-      for (const [key, value] of searchParams) allParams.set(key, value);
-      for (const [key, value] of hashParams) allParams.set(key, value);
-      
-      log('URL on load', href);
-      log('Search parameters', Object.fromEntries(searchParams));
-      log('Hash parameters', Object.fromEntries(hashParams));
-      log('All parameters', Object.fromEntries(allParams));
-
-      // Check for password recovery code specifically
-      const recoveryCode = allParams.get('code') || searchParams.get('code');
-      const type = allParams.get('type') || searchParams.get('type');
-      const accessToken = allParams.get('access_token');
-      
-      if (type === 'recovery' || (accessToken && href.includes('type=recovery'))) {
-        log('Password recovery link detected', 'Showing recovery form directly');
-        showRecoveryForm();
-        
-        // Store the recovery code for use in password update
-        if (recoveryCode) window.recoveryCode = recoveryCode;
-        if (accessToken) window.recoveryAccessToken = accessToken;
-        
-        // Clean up URL
-        const cleanUrl = window.location.origin + window.location.pathname;
-        history.replaceState({}, document.title, cleanUrl);
-        return;
-      }
-
-      // Handle other auth redirects
-      if (href.includes('code=') || href.includes('access_token=') || href.includes('token=')) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(href);
-        if (error) {
-          log('exchangeCodeForSession error', error.message);
-          
-          // If this fails but we have recovery indicators, treat as recovery
-          if (type === 'recovery' || href.includes('type=recovery')) {
-            log('Session exchange failed, treating as recovery', 'Showing recovery form');
-            showRecoveryForm();
-            if (recoveryCode) window.recoveryCode = recoveryCode;
-            if (accessToken) window.recoveryAccessToken = accessToken;
-          }
+          showMessage('signup-message', error.message, true);
         } else {
-          log('exchangeCodeForSession data', data);
-        }
-        
-        // Clean up the URL after processing
-        const cleanUrl = window.location.origin + window.location.pathname;
-        history.replaceState({}, document.title, cleanUrl);
-      }
-    }
-    await handleRedirect();
-
-    // ===== Session reflection
-    async function refreshSession() {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      log('getSession error', error ?? 'none');
-      log('getSession session', session ?? null);
-      
-      if (session?.user?.email) {
-        // Check if this is a recovery session before doing normal login
-        if (isRecoverySession(session)) {
-          log('Recovery session detected in refreshSession', 'Showing recovery form');
-          showRecoveryForm();
-          return; // Don't do normal login flow
-        }
-        
-        setSignedIn(session.user.email);
-        trackActivity('session_refreshed', 'Page load with existing session');
-        await enforceMfa();
-      } else {
-        setSignedOut();
-      }
-    }
-    
-    // Initialize app when page loads
-    document.addEventListener('DOMContentLoaded', async () => {
-      // Load saved email preference
-      loadSavedEmail();
-      
-      // Test database connectivity
-      const dbConnected = await testDatabaseConnections();
-      if (!dbConnected) {
-        log('Warning', 'Database connectivity issues detected - some features may be limited');
-      }
-    });
-    
-    await refreshSession();
-
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      log('onAuthStateChange', { event, user: session?.user ?? null });
-      
-      // Check for password recovery (both event and session analysis)
-      if (event === 'PASSWORD_RECOVERY' || isRecoverySession(session)) {
-        log('Password recovery detected in auth state change', 'Showing recovery form');
-        showRecoveryForm();
-        return; // Don't run the normal login flow
-      }
-      
-      if (session?.user?.email) {
-        setSignedIn(session.user.email);
-        await enforceMfa();
-      } else {
-        setSignedOut();
-      }
-    });
-
-    // ===== Enforce MFA (hard requirement)
-    async function enforceMfa() {
-      const { data, error } = await supabase.auth.mfa.listFactors();
-      log('listFactors', error ?? data);
-
-      const totp = (data?.totp ?? []).filter(f => f.status === 'verified');
-      if (totp.length > 0) {
-        mfaStatus.textContent = `MFA enabled (${totp.length} TOTP factor${totp.length > 1 ? 's' : ''})`;
-        mfaEnrollBlock.classList.add('hide');
-        mfaAlreadyBlock.classList.remove('hide');
-        mfaFactorsDiv.textContent = totp.map(f => `• TOTP (id: ${f.id})`).join('\n') || 'TOTP enrolled.';
-        gateApp(false); // UNLOCK APP
-      } else {
-        // No verified factor → lock app and push user through enrollment
-        gateApp(true);
-        mfaAlreadyBlock.classList.add('hide');
-        mfaEnrollBlock.classList.remove('hide');
-        mfaStatus.textContent = 'MFA not enabled. You must complete setup to continue.';
-        mfaStatus.classList.add('err');
-        mfaCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        if (REQUIRE_MFA && mfaEnrollUI.classList.contains('hide')) {
-          await startEnroll(); // auto-generate QR + secret
-        }
-      }
-    }
-
-    // ===== Start TOTP enroll
-    async function startEnroll() {
-      mfaEnrollMsg.textContent = 'Generating…';
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
-      if (error) { mfaEnrollMsg.textContent = 'Enroll error: ' + error.message; return; }
-      log('mfa.enroll', data);
-
-      enrollFactorId = data.id;
-      mfaQR.src = data.totp.qr_code;           // PNG data URL
-      mfaSecret.textContent = data.totp.secret; // Base32
-      const user = (await supabase.auth.getUser()).data?.user;
-      const issuer = encodeURIComponent('Budget Tracker');
-      const account = encodeURIComponent(user?.email || 'user');
-      const otpauth = data.totp.uri || `otpauth://totp/${issuer}:${account}?secret=${data.totp.secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
-      mfaOtpAuth.href = otpauth;
-
-      mfaEnrollUI.classList.remove('hide');
-      mfaEnrollMsg.textContent = 'Scan QR or tap link / enter setup key, then enter the 6-digit code.';
-    }
-    document.getElementById('mfa-start').addEventListener('click', startEnroll);
-
-    // ===== Verify and activate factor
-    mfaVerifyBtn.addEventListener('click', async () => {
-      mfaEnrollMsg.textContent = 'Verifying…';
-      const code = mfaCode.value.trim();
-      if (!enrollFactorId) { mfaEnrollMsg.textContent = 'No enrollment in progress.'; return; }
-
-      const ch = await supabase.auth.mfa.challenge({ factorId: enrollFactorId });
-      if (ch.error) { mfaEnrollMsg.textContent = 'Challenge error: ' + ch.error.message; return; }
-
-      const vr = await supabase.auth.mfa.verify({
-        factorId: enrollFactorId,
-        code,
-        challengeId: ch.data.id,
-      });
-      if (vr.error) {
-        mfaEnrollMsg.textContent = 'Verify error: ' + vr.error.message;
-      } else {
-        mfaEnrollMsg.textContent = 'MFA enabled!';
-        mfaEnrollUI.classList.add('hide');
-        mfaCode.value = '';
-        enrollFactorId = null;
-        await enforceMfa(); // re-check and unlock app
-      }
-    });
-
-    // ===== Sign up
-    signupForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      signupMsg.textContent = '...';
-      const email = document.getElementById('su-email').value.trim();
-      const password = document.getElementById('su-password').value;
-
-      const { data, error } = await supabase.auth.signUp({
-        email, password,
-        options: { emailRedirectTo: 'https://charles85298.github.io/budget-tracker/' }
-      });
-      if (error) signupMsg.textContent = 'Error: ' + error.message;
-      else {
-        signupMsg.textContent = data?.user?.email_confirmed_at
-          ? 'Account created.'
-          : 'Check your email to confirm your account.';
-        log('signUp', data);
-        await refreshSession();
-      }
-    });
-
-    // ===== Sign in (handles MFA-required case)
-    signinForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      signinMsg.textContent = '...';
-      const email = document.getElementById('si-email').value.trim();
-      const password = document.getElementById('si-password').value;
-      const rememberEmail = rememberEmailCheckbox.checked;
-
-      // Save email preference
-      saveEmail(email, rememberEmail);
-
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (error) {
-        const msg = (error.message || '').toLowerCase();
-        if (msg.includes('mfa')) {
-          signinMsg.textContent = 'MFA required: enter your 6-digit code.';
-          const lf = await supabase.auth.mfa.listFactors();
-          log('listFactors (after mfa_required)', lf);
-          const firstVerified = (lf?.data?.totp ?? []).find(f => f.status === 'verified');
-          if (!firstVerified) { 
-            signinMsg.textContent = 'MFA required but no verified TOTP factor found.';
-            await logFailedLogin(email, 'no_mfa_factor');
-            return; 
-          }
-          const ch = await supabase.auth.mfa.challenge({ factorId: firstVerified.id });
-          if (ch.error) { 
-            signinMsg.textContent = 'Error starting MFA challenge: ' + ch.error.message;
-            await logFailedLogin(email, 'mfa_challenge_failed');
-            return; 
-          }
-          pendingMfa = { factorId: firstVerified.id, challengeId: ch.data.id };
-          mfaLoginCard.classList.remove('hide');
-        } else {
-          signinMsg.textContent = 'Error: ' + error.message;
-          await logFailedLogin(email, 'invalid_credentials');
-        }
-      } else {
-        signinMsg.textContent = 'Signed in.';
-        log('signInWithPassword', data);
-        await logSuccessfulLogin('email_password_totp');
-        await refreshSession();
-      }
-    });
-
-    // ===== Verify MFA during login
-    mfaLoginVerifyBtn.addEventListener('click', async () => {
-      mfaLoginMsg.textContent = 'Verifying…';
-      const code = mfaLoginCode.value.trim();
-      if (!pendingMfa.factorId || !pendingMfa.challengeId) {
-        mfaLoginMsg.textContent = 'No MFA challenge in progress.';
-        return;
-      }
-      const vr = await supabase.auth.mfa.verify({
-        factorId: pendingMfa.factorId,
-        code,
-        challengeId: pendingMfa.challengeId,
-      });
-      if (vr.error) {
-        mfaLoginMsg.textContent = 'MFA verify error: ' + vr.error.message;
-        const email = document.getElementById('si-email').value.trim();
-        await logFailedLogin(email, 'invalid_totp');
-      } else {
-        mfaLoginMsg.textContent = 'MFA verified. Signed in.';
-        mfaLoginCard.classList.add('hide');
-        await logSuccessfulLogin('email_password_totp');
-        await refreshSession();
-      }
-    });
-
-    // ===== Password reset
-    forgotBtn.addEventListener('click', () => forgotCard.classList.toggle('hide'));
-    forgotForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      forgotMsg.textContent = '...';
-      const email = document.getElementById('fp-email').value.trim();
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://charles85298.github.io/budget-tracker/'
-      });
-      if (error) forgotMsg.textContent = 'Error: ' + error.message;
-      else { forgotMsg.textContent = 'Reset email sent. Check your inbox.'; log('resetPasswordForEmail', data); }
-    });
-
-    recoveryForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      recoveryMsg.textContent = 'Updating password...';
-      const newPassword = document.getElementById('rp-password').value;
-      
-      try {
-        // If we have a stored recovery code, use verifyOtp method
-        if (window.recoveryCode) {
-          log('Using recovery code for password reset', window.recoveryCode);
-          
-          const { data, error } = await supabase.auth.verifyOtp({
-            token_hash: window.recoveryCode,
-            type: 'recovery'
-          });
-          
-          if (error) {
-            recoveryMsg.textContent = 'Recovery verification failed: ' + error.message;
-            log('Recovery verification error', error);
-            return;
-          }
-          
-          log('Recovery verification successful', data);
-        }
-        
-        // Now update the password
-        const { data, error } = await supabase.auth.updateUser({ password: newPassword });
-        
-        if (error) {
-          recoveryMsg.textContent = 'Password update failed: ' + error.message;
-          log('Password update error', error);
-        } else {
-          recoveryMsg.textContent = 'Password updated successfully! Please sign in with your new password.';
-          log('Password updated', data);
-          
-          // Clear recovery code and redirect to login
-          window.recoveryCode = null;
-          recoveryCard.classList.add('hide');
-          signinCard.classList.remove('hide');
-          
-          // Clear any existing session and show login form
-          await supabase.auth.signOut();
-          setSignedOut();
+          showMessage('signup-message', 'Account created successfully!');
+          // Clear form
+          document.getElementById('signup-email').value = '';
+          document.getElementById('signup-password').value = '';
         }
       } catch (err) {
-        recoveryMsg.textContent = 'An error occurred: ' + err.message;
-        log('Recovery process error', err);
+        showMessage('signup-message', 'An error occurred during signup', true);
       }
-    });
+    }
 
-    // ===== Sign out
-    signoutBtn.addEventListener('click', async () => {
-      await logLogout('manual');
-      const { error } = await supabase.auth.signOut();
-      if (error) log('signOut error', error.message);
-      setSignedOut();
-    });
+    // Sign in function
+    async function signIn() {
+      const email = document.getElementById('signin-email').value;
+      const password = document.getElementById('signin-password').value;
 
-    // ===== Paychecks viewer (inside gated area)
-    readBtn?.addEventListener('click', async () => {
-      outEl.textContent = 'Loading…';
-      trackActivity('data_access', 'Loading paychecks');
-      const { data, error } = await supabase
-        .from('paychecks')
-        .select('paycheck_id, employer, pay_date, net_amount')
-        .order('pay_date', { ascending: false })
-        .limit(50);
-      outEl.textContent = error ? `Error: ${error.message}` : JSON.stringify(data, null, 2);
-      log('read paychecks', error ?? data);
-    });
+      hideMessage('signin-message');
 
-    // ===== Activity tracking event listeners (improved)
-    let activityThrottle = null;
-    const throttledTrackActivity = (type, details) => {
-      if (activityThrottle) return; // Prevent excessive logging
-      
-      trackActivity(type, details);
-      activityThrottle = setTimeout(() => {
-        activityThrottle = null;
-      }, 1000); // Only log once per second max
-    };
-
-    document.addEventListener('click', (e) => {
-      const element = e.target.tagName || 'unknown';
-      throttledTrackActivity('click', `Element: ${element}`);
-    });
-    
-    document.addEventListener('keydown', (e) => {
-      if (e.target.type === 'password') return; // Don't log password field activity
-      throttledTrackActivity('keydown', 'User interaction');
-    });
-    
-    // Track form submissions with better details
-    document.querySelectorAll('form').forEach(form => {
-      form.addEventListener('submit', (e) => {
-        const formId = e.target.id || 'unknown-form';
-        trackActivity('form_submit', `Form: ${formId}`);
-      });
-    });
-
-    // Track page visibility changes (user switching tabs, etc.)
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        trackActivity('page_hidden', 'User switched away from tab');
-      } else {
-        trackActivity('page_visible', 'User returned to tab');
+      if (!email || !password) {
+        showMessage('signin-message', 'Please fill in all fields', true);
+        return;
       }
-    });
 
-    // Enhanced page unload tracking
-    window.addEventListener('beforeunload', async (e) => {
-      if (currentLoginId) {
-        // Use sendBeacon for reliable tracking even during page unload
-        const activityData = {
-          user_id: (await supabase.auth.getUser()).data?.user?.id,
-          login_id: currentLoginId,
-          activity_type: 'page_unload',
-          page_url: window.location.href,
-          action_description: 'User navigating away or closing page'
-        };
-        
-        // Attempt to send beacon (more reliable than fetch during unload)
-        if (navigator.sendBeacon) {
-          const blob = new Blob([JSON.stringify(activityData)], { type: 'application/json' });
-          navigator.sendBeacon('/api/track-activity', blob);
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: password
+        });
+
+        if (error) {
+          showMessage('signin-message', error.message, true);
+        } else {
+          showMessage('signin-message', 'Signed in successfully!');
+          // Clear form
+          document.getElementById('signin-password').value = '';
         }
-        
-        // Also try direct database call as backup
-        try {
-          await supabase.from('user_activity_log').insert(activityData);
-        } catch (error) {
-          // Ignore errors during page unload
-        }
+      } catch (err) {
+        showMessage('signin-message', 'An error occurred during signin', true);
       }
+    }
+
+    // Sign out function
+    async function signOut() {
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.error('Sign out error:', error);
+        }
+      } catch (err) {
+        console.error('Sign out failed:', err);
+      }
+    }
+
+    // Listen for auth state changes
+    supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email || 'no user');
+      updateStatus(session?.user || null);
     });
 
-    // ===== Session extension
-    extendSessionBtn.addEventListener('click', extendSession);
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      updateStatus(session?.user || null);
+    });
   </script>
 </body>
 </html>
