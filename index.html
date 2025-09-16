@@ -306,7 +306,7 @@
 
       try {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin + window.location.pathname + '?page=change-password'
+          redirectTo: 'https://charles85298.github.io/budget-tracker/?page=change-password'
         });
 
         if (error) {
