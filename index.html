@@ -128,6 +128,18 @@
     <div id="reset-message" class="message hide"></div>
   </div>
 
+  <!-- Force New Password Form (shown after password recovery) -->
+  <div class="card hide" id="new-password-section">
+    <h2>Set New Password</h2>
+    <p>You accessed your account via password reset. Please set a new password to continue.</p>
+    <div class="form-group">
+      <label>New Password:</label>
+      <input type="password" id="new-password" placeholder="Enter new password" />
+    </div>
+    <button onclick="updatePassword()">Set New Password</button>
+    <div id="new-password-message" class="message hide"></div>
+  </div>
+
   <!-- Sign Out Button (hidden when logged out) -->
   <div class="card hide" id="signout-section">
     <button onclick="signOut()">Sign Out</button>
@@ -143,26 +155,55 @@
     window.signOut = signOut;
     window.resetPassword = resetPassword;
     window.togglePasswordReset = togglePasswordReset;
+    window.updatePassword = updatePassword;
 
     // Update UI based on login status
-    function updateStatus(user) {
+    function updateStatus(user, isPasswordRecovery = false) {
       const statusEl = document.getElementById('status');
       const signupSection = document.getElementById('signup-section');
       const signinSection = document.getElementById('signin-section');
       const signoutSection = document.getElementById('signout-section');
+      const resetSection = document.getElementById('reset-section');
+      const newPasswordSection = document.getElementById('new-password-section');
 
-      if (user) {
+      // Check if this is the change password page
+      const urlParams = new URLSearchParams(window.location.search);
+      const isChangePasswordPage = urlParams.get('page') === 'change-password';
+
+      if (isChangePasswordPage && user) {
+        // Show only password change form (Supabase docs approach)
+        statusEl.textContent = 'Set your new password';
+        statusEl.className = 'status logged-out';
+        signupSection.classList.add('hide');
+        signinSection.classList.add('hide');
+        signoutSection.classList.add('hide');
+        resetSection.classList.add('hide');
+        newPasswordSection.classList.remove('hide');
+      } else if (isPasswordRecovery) {
+        // Force password change after recovery (fallback)
+        statusEl.textContent = 'Password reset required - set new password';
+        statusEl.className = 'status logged-out';
+        signupSection.classList.add('hide');
+        signinSection.classList.add('hide');
+        signoutSection.classList.add('hide');
+        resetSection.classList.add('hide');
+        newPasswordSection.classList.remove('hide');
+      } else if (user) {
         statusEl.textContent = `Logged in as: ${user.email}`;
         statusEl.className = 'status logged-in';
         signupSection.classList.add('hide');
         signinSection.classList.add('hide');
         signoutSection.classList.remove('hide');
+        resetSection.classList.add('hide');
+        newPasswordSection.classList.add('hide');
       } else {
         statusEl.textContent = 'Not signed in';
         statusEl.className = 'status logged-out';
         signupSection.classList.remove('hide');
         signinSection.classList.remove('hide');
         signoutSection.classList.add('hide');
+        resetSection.classList.add('hide');
+        newPasswordSection.classList.add('hide');
       }
     }
 
@@ -265,13 +306,13 @@
 
       try {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin + window.location.pathname
+          redirectTo: window.location.origin + window.location.pathname + '?page=change-password'
         });
 
         if (error) {
           showMessage('reset-message', error.message, true);
         } else {
-          showMessage('reset-message', 'Password reset email sent! Check your inbox.');
+          showMessage('reset-message', 'Password reset email sent! Check your inbox and click the link to set a new password.');
           document.getElementById('reset-email').value = '';
         }
       } catch (err) {
@@ -297,10 +338,54 @@
       }
     }
 
+    // Update password after recovery
+    async function updatePassword() {
+      const newPassword = document.getElementById('new-password').value;
+
+      hideMessage('new-password-message');
+
+      if (!newPassword) {
+        showMessage('new-password-message', 'Please enter a new password', true);
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        showMessage('new-password-message', 'Password must be at least 6 characters', true);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.auth.updateUser({ 
+          password: newPassword 
+        });
+
+        if (error) {
+          showMessage('new-password-message', error.message, true);
+        } else {
+          showMessage('new-password-message', 'Password updated successfully! Redirecting to login...');
+          document.getElementById('new-password').value = '';
+          
+          // Redirect back to main login page after successful password change
+          setTimeout(() => {
+            window.location.href = window.location.origin + window.location.pathname;
+          }, 2000);
+        }
+      } catch (err) {
+        showMessage('new-password-message', 'An error occurred while updating password', true);
+      }
+    }
+
     // Listen for auth state changes
     supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event, session?.user?.email || 'no user');
-      updateStatus(session?.user || null);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        // Force user to set new password instead of just logging in
+        console.log('Password recovery detected - forcing password change');
+        updateStatus(session?.user || null, true); // true = isPasswordRecovery
+      } else {
+        updateStatus(session?.user || null, false);
+      }
     });
 
     // Check initial session
