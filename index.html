@@ -1,976 +1,604 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Supabase MFA - Official Implementation</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    body { 
-      font-family: system-ui, Arial; 
-      max-width: 600px; 
-      margin: 2rem auto; 
-      padding: 1rem; 
-    }
-    .status {
-      font-size: 1.2em;
-      font-weight: bold;
-      padding: 1rem;
-      border-radius: 8px;
-      margin-bottom: 2rem;
-    }
-    .logged-in { 
-      background: #d4edda; 
-      color: #155724; 
-      border: 1px solid #c3e6cb;
-    }
-    .logged-out { 
-      background: #f8d7da; 
-      color: #721c24; 
-      border: 1px solid #f5c6cb;
-    }
-    .card { 
-      border: 1px solid #ddd; 
-      border-radius: 8px; 
-      padding: 1rem; 
-      margin: 1rem 0; 
-    }
-    .form-group { 
-      margin: 0.5rem 0; 
-    }
-    label { 
-      display: block; 
-      margin-bottom: 0.25rem; 
-    }
-    input { 
-      width: 100%; 
-      padding: 0.5rem; 
-      border: 1px solid #ccc; 
-      border-radius: 4px;
-      box-sizing: border-box;
-    }
-    button { 
-      background: #007bff; 
-      color: white; 
-      border: none; 
-      padding: 0.75rem 1rem; 
-      border-radius: 4px; 
-      cursor: pointer; 
-      margin: 0.5rem 0.5rem 0.5rem 0; 
-    }
-    button:hover { 
-      background: #0056b3; 
-    }
-    button:disabled {
-      background: #6c757d;
-      cursor: not-allowed;
-    }
-    .secondary-btn {
-      background: #6c757d !important;
-    }
-    .secondary-btn:hover {
-      background: #545b62 !important;
-    }
-    .hide { 
-      display: none; 
-    }
-    .message { 
-      padding: 0.5rem; 
-      margin: 0.5rem 0; 
-      border-radius: 4px; 
-    }
-    .success { 
-      background: #d4edda; 
-      color: #155724; 
-    }
-    .error { 
-      background: #f8d7da; 
-      color: #721c24; 
-    }
-    .info {
-      background: #d1ecf1;
-      color: #0c5460;
-    }
-    .qr-container {
-      text-align: center;
-      margin: 1rem 0;
-    }
-    .qr-code {
-      background: white;
-      padding: 1rem;
-      border-radius: 8px;
-      display: inline-block;
-    }
-    .loading {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 200px;
-      font-size: 1.2em;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 1rem 0;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 0.5rem;
-      text-align: left;
-    }
-    th {
-      background: #f5f5f5;
-    }
-    .factor-table {
-      font-size: 0.9em;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Budget Tracker</title>
+    
+    <!-- SECURITY: Content Security Policy - Blocks unauthorized scripts/resources -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' https://cdnjs.cloudflare.com;
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: https:;
+        connect-src 'self' https://*.supabase.co;
+        frame-ancestors 'none';
+        base-uri 'self';
+        form-action 'self';
+        object-src 'none';
+    ">
+    
+    <!-- SECURITY: Prevent MIME type sniffing -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    
+    <!-- SECURITY: XSS Protection -->
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    
+    <!-- SECURITY: Frame Options -->
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .form-group { margin: 15px 0; }
+        .form-group label { display: block; margin-bottom: 5px; }
+        .form-group input { width: 300px; padding: 8px; }
+        .error-message { color: red; margin: 10px 0; display: none; }
+        .success-message { color: green; margin: 10px 0; display: none; }
+        .rate-limit-notice { color: orange; margin: 10px 0; display: none; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .mfa-container, .qr-container { margin: 20px 0; }
+        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
 </head>
 <body>
-  <h1>Supabase MFA - Official Implementation</h1>
-
-  <!-- Loading Screen -->
-  <div id="loading-screen" class="loading">
-    <div>Loading...</div>
-  </div>
-
-  <!-- Login Forms (before authentication) -->
-  <div id="auth-section" class="hide">
-    <div class="status logged-out">
-      Not signed in
-    </div>
-
-    <!-- Sign Up Form -->
-    <div class="card">
-      <h2>Create Account</h2>
-      <div class="form-group">
-        <label>Email:</label>
-        <input type="email" id="signup-email" placeholder="you@example.com" />
-      </div>
-      <div class="form-group">
-        <label>Password:</label>
-        <input type="password" id="signup-password" placeholder="Password" />
-      </div>
-      <button onclick="signUp()">Sign Up</button>
-      <div id="signup-message" class="message hide"></div>
-    </div>
-
-    <!-- Sign In Form -->
-    <div class="card" id="signin-section">
-      <h2>Sign In</h2>
-      <div class="form-group">
-        <label>Email:</label>
-        <input type="email" id="signin-email" placeholder="you@example.com" />
-      </div>
-      <div class="form-group">
-        <label>Password:</label>
-        <input type="password" id="signin-password" placeholder="Password" />
-      </div>
-      <button onclick="signIn()">Sign In</button>
-      <button onclick="togglePasswordReset()" class="secondary-btn">Forgot Password?</button>
-      <div id="signin-message" class="message hide"></div>
-    </div>
-
-    <!-- Password Reset Form -->
-    <div class="card hide" id="reset-section">
-      <h2>Reset Password</h2>
-      <div class="form-group">
-        <label>Email:</label>
-        <input type="email" id="reset-email" placeholder="you@example.com" />
-      </div>
-      <button onclick="resetPassword()">Send Reset Email</button>
-      <button onclick="togglePasswordReset()" class="secondary-btn">Back to Sign In</button>
-      <div id="reset-message" class="message hide"></div>
-    </div>
-  </div>
-
-  <!-- MFA Challenge Screen (intermediate state) -->
-  <div id="mfa-challenge-screen" class="hide">
-    <div class="status logged-out">
-      Multi-factor authentication required
-    </div>
-
-    <div class="card">
-      <h2>Enter Authenticator Code</h2>
-      <p>Please enter the 6-digit code from your authenticator app to complete sign in.</p>
-      <div class="form-group">
-        <label>Authenticator Code:</label>
-        <input type="text" id="mfa-challenge-input" placeholder="123456" maxlength="6" />
-      </div>
-      <button onclick="verifyMFAChallenge()">Verify & Sign In</button>
-      <button onclick="cancelMFAFlow()" class="secondary-btn">Cancel</button>
-      <div id="mfa-challenge-message" class="message hide"></div>
-    </div>
-  </div>
-
-  <!-- Password Recovery Screen -->
-  <div id="password-recovery-screen" class="hide">
-    <div class="status logged-out">
-      Set new password
-    </div>
-
-    <div class="card">
-      <h2>Set New Password</h2>
-      <p>You accessed your account via password reset. Please set a new password to continue.</p>
-      <div class="form-group">
-        <label>New Password:</label>
-        <input type="password" id="new-password" placeholder="Enter new password" />
-      </div>
-      <button onclick="updatePassword()">Set New Password</button>
-      <div id="password-update-message" class="message hide"></div>
-    </div>
-
-    <!-- MFA Challenge for Password Change -->
-    <div class="card hide" id="password-mfa-section">
-      <h2>MFA Required for Password Change</h2>
-      <p>Enter your 6-digit authenticator code to confirm the password change.</p>
-      <div class="form-group">
-        <label>Authenticator Code:</label>
-        <input type="text" id="password-mfa-code" placeholder="123456" maxlength="6" />
-      </div>
-      <button onclick="verifyPasswordMFA()">Verify & Update Password</button>
-      <button onclick="cancelPasswordMFA()" class="secondary-btn">Cancel</button>
-      <div id="password-mfa-message" class="message hide"></div>
-    </div>
-  </div>
-
-  <!-- Main Application (after successful authentication) -->
-  <div id="main-app" class="hide">
-    <div class="status logged-in">
-      <span id="user-email">Logged in</span>
-    </div>
-
-    <!-- MFA Status and Management -->
-    <div class="card">
-      <h2>Multi-Factor Authentication</h2>
-      <div id="mfa-status-display"></div>
-      
-      <!-- MFA Setup Section -->
-      <div id="mfa-setup-section">
-        <p>Secure your account with two-factor authentication using an authenticator app.</p>
-        <button onclick="startMFAEnrollment()">Setup MFA</button>
-      </div>
-
-      <!-- MFA Enrollment Process -->
-      <div id="mfa-enrollment-section" class="hide">
-        <h3>Setup Two-Factor Authentication</h3>
-        <div id="enrollment-message" class="message hide"></div>
+    <h1>Secure Budget Tracker</h1>
+    
+    <!-- Login Form with Security Enhancements -->
+    <div id="loginSection">
+        <h2>Login</h2>
+        <form id="loginForm" autocomplete="on">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email"
+                    autocomplete="email"
+                    required
+                    placeholder="Enter your email"
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password"
+                    autocomplete="current-password"
+                    required
+                    placeholder="Enter your password"
+                    minlength="8"
+                >
+            </div>
+            
+            <button type="submit" id="loginButton">Login</button>
+        </form>
         
-        <div id="enrollment-qr-step">
-          <p><strong>Step 1:</strong> Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.):</p>
-          <div class="qr-container">
-            <div id="qr-code-display" class="qr-code"></div>
-          </div>
-          <p><strong>Or enter this secret key manually:</strong></p>
-          <p><code id="secret-key-display"></code></p>
-          <p><strong>Step 2:</strong> Enter the 6-digit code from your authenticator app:</p>
-          <div class="form-group">
-            <label>Verification Code:</label>
-            <input type="text" id="enrollment-verification-code" placeholder="123456" maxlength="6" />
-          </div>
-          <button onclick="verifyMFAEnrollment()">Enable MFA</button>
-          <button onclick="cancelMFAEnrollment()" class="secondary-btn">Cancel</button>
+        <div id="rateLimitNotice" class="rate-limit-notice">
+            Too many login attempts. Please wait before trying again.
         </div>
-      </div>
+        
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+        
+        <p><button type="button" id="showRegisterBtn">Register New Account</button></p>
+    </div>
 
-      <!-- MFA Factor Management -->
-      <div id="mfa-management-section" class="hide">
-        <h3>Your MFA Factors</h3>
-        <div class="factor-table">
-          <table>
+    <!-- Registration Form -->
+    <div id="registerSection" style="display: none;">
+        <h2>Register</h2>
+        <form id="registerForm" autocomplete="on">
+            <div class="form-group">
+                <label for="regEmail">Email:</label>
+                <input 
+                    type="email" 
+                    id="regEmail" 
+                    name="email"
+                    autocomplete="email"
+                    required
+                    placeholder="Enter your email"
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="regPassword">Password (minimum 12 characters):</label>
+                <input 
+                    type="password" 
+                    id="regPassword" 
+                    name="new-password"
+                    autocomplete="new-password"
+                    required
+                    placeholder="Create a strong password"
+                    minlength="12"
+                >
+            </div>
+            
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password:</label>
+                <input 
+                    type="password" 
+                    id="confirmPassword" 
+                    name="confirm-password"
+                    autocomplete="new-password"
+                    required
+                    placeholder="Confirm your password"
+                    minlength="12"
+                >
+            </div>
+            
+            <!-- CAPTCHA placeholder - implement with your preferred service -->
+            <div class="form-group">
+                <div id="captchaContainer">
+                    <!-- Replace with actual CAPTCHA implementation -->
+                    <div style="border: 1px dashed #ccc; padding: 20px; text-align: center; background: #f9f9f9;">
+                        CAPTCHA Integration Point
+                        <br><small>Implement Turnstile, hCaptcha, or similar</small>
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit" id="registerButton">Register</button>
+        </form>
+        
+        <p><button type="button" id="showLoginBtn">Back to Login</button></p>
+    </div>
+
+    <!-- QR Code Display Container (secure) -->
+    <div id="qrContainer" class="qr-container" style="display: none;">
+        <h3>MFA Setup QR Code</h3>
+        <div id="qrCodeDisplay"></div>
+    </div>
+
+    <!-- MFA Factors Table Container (secure) -->
+    <div id="mfaFactorsContainer" class="mfa-container" style="display: none;">
+        <h3>Multi-Factor Authentication</h3>
+        <table id="mfaFactorsTable">
             <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Action</th>
-              </tr>
+                <tr>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
             </thead>
-            <tbody id="factors-table-body">
+            <tbody id="mfaFactorsBody">
+                <!-- Populated securely via JavaScript -->
             </tbody>
-          </table>
-        </div>
-        <div id="unenroll-message" class="message hide"></div>
-      </div>
+        </table>
     </div>
 
-    <!-- Sign Out -->
-    <div class="card">
-      <button onclick="signOut()">Sign Out</button>
+    <!-- Dashboard (shown after login) -->
+    <div id="dashboardSection" style="display: none;">
+        <h2>Dashboard</h2>
+        <div id="householdInfo"></div>
+        <div id="accountsList"></div>
+        <button type="button" id="logoutButton">Logout</button>
     </div>
-  </div>
 
-  <script type="module">
-    // Import from your existing supabaseClient.js file
-    import { supabase } from './supabaseClient.js';
-
-    // Global state
-    let currentUser = null;
-    let currentFactors = [];
-    let enrollmentData = null;
-    let challengeData = null;
-    let pendingPasswordUpdate = null;
-
-    // Make functions globally available
-    window.supabase = supabase;
-    window.signUp = signUp;
-    window.signIn = signIn;
-    window.signOut = signOut;
-    window.resetPassword = resetPassword;
-    window.togglePasswordReset = togglePasswordReset;
-    window.updatePassword = updatePassword;
-    window.startMFAEnrollment = startMFAEnrollment;
-    window.verifyMFAEnrollment = verifyMFAEnrollment;
-    window.cancelMFAEnrollment = cancelMFAEnrollment;
-    window.verifyMFAChallenge = verifyMFAChallenge;
-    window.cancelMFAFlow = cancelMFAFlow;
-    window.verifyPasswordMFA = verifyPasswordMFA;
-    window.cancelPasswordMFA = cancelPasswordMFA;
-    window.unenrollFactor = unenrollFactor;
-
-    // Main app initialization following official Supabase MFA pattern
-    async function initializeApp() {
-      console.log('Initializing app...');
-      console.log('Supabase client:', supabase);
-      
-      try {
-        // Get current session
-        const { data: { session }, error } = await supabase.auth.getSession();
+    <script type="module">
+        // Import Supabase client
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
         
-        if (error) {
-          console.error('Session error:', error);
-        }
+        // Initialize Supabase (use environment variables in production)
+        const supabaseUrl = 'YOUR_SUPABASE_URL';  // Replace with your URL
+        const supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';  // Replace with your key
+        const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-        // Check if this is a password recovery flow
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('page') === 'change-password' && session?.user) {
-          showPasswordRecoveryScreen(session.user);
-          hideLoadingScreen();
-          return;
-        }
-
-        if (session?.user) {
-          // User is logged in - check AAL level using official pattern
-          await handleAuthenticatedUserWithAAL(session.user);
-        } else {
-          showAuthSection();
-        }
-      } catch (error) {
-        console.error('App initialization error:', error);
-        showAuthSection();
-      }
-      
-      // Always hide loading screen (following official docs pattern)
-      hideLoadingScreen();
-    }
-
-    // Handle authenticated user following EXACT official AAL checking pattern
-    async function handleAuthenticatedUserWithAAL(user) {
-      const [readyToShow, setReadyToShow] = [false, (val) => console.log('Ready to show:', val)];
-      const [showMFAScreen, setShowMFAScreen] = [false, (val) => console.log('Show MFA screen:', val)];
-      
-      try {
-        const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        
-        if (error) {
-          console.error('AAL error:', error);
-          showMainApp(user);
-          return;
-        }
-
-        console.log('AAL data:', data);
-
-        // Official pattern: check if MFA challenge is needed
-        if (data.nextLevel === 'aal2' && data.nextLevel !== data.currentLevel) {
-          // User has MFA enrolled but hasn't completed challenge
-          await showMFAChallengeScreenOfficial(user);
-        } else {
-          // User is fully authenticated
-          showMainApp(user);
-        }
-      } catch (error) {
-        console.error('Error in AAL check:', error);
-        showMainApp(user);
-      }
-    }
-
-    // Show MFA challenge screen (following EXACT official docs pattern)
-    async function showMFAChallengeScreenOfficial(user) {
-      try {
-        currentUser = user;
-        
-        // Official pattern: get factors and create challenge immediately
-        const factors = await supabase.auth.mfa.listFactors();
-        
-        if (factors.error) {
-          console.error('Factors error:', factors.error);
-          showMainApp(user);
-          return;
-        }
-
-        const totpFactor = factors.data.totp[0];
-        if (!totpFactor) {
-          console.error('No TOTP factors found');
-          showMainApp(user);
-          return;
-        }
-
-        // Store factor ID for verification
-        challengeData = {
-          factorId: totpFactor.id
-        };
-
-        hideAllScreens();
-        document.getElementById('mfa-challenge-screen').classList.remove('hide');
-        
-      } catch (error) {
-        console.error('Error showing MFA challenge:', error);
-        showMainApp(user);
-      }
-    }
-
-    // UI Management Functions
-    function hideLoadingScreen() {
-      document.getElementById('loading-screen').classList.add('hide');
-    }
-
-    function hideAllScreens() {
-      const screens = ['auth-section', 'mfa-challenge-screen', 'password-recovery-screen', 'main-app'];
-      screens.forEach(id => document.getElementById(id).classList.add('hide'));
-    }
-
-    function showAuthSection() {
-      hideAllScreens();
-      document.getElementById('auth-section').classList.remove('hide');
-    }
-
-    function showPasswordRecoveryScreen(user) {
-      hideAllScreens();
-      currentUser = user;
-      document.getElementById('password-recovery-screen').classList.remove('hide');
-    }
-
-    async function showMainApp(user) {
-      hideAllScreens();
-      currentUser = user;
-      document.getElementById('user-email').textContent = `Logged in as: ${user.email}`;
-      document.getElementById('main-app').classList.remove('hide');
-      
-      await updateMFAStatus();
-    }
-
-    // Update MFA status display
-    async function updateMFAStatus() {
-      try {
-        const { data: factors, error } = await supabase.auth.mfa.listFactors();
-        
-        if (error) {
-          console.error('Error fetching factors:', error);
-          return;
-        }
-
-        currentFactors = [...(factors.totp || []), ...(factors.phone || [])];
-        const hasVerifiedMFA = currentFactors.some(f => f.status === 'verified');
-
-        const statusEl = document.getElementById('mfa-status-display');
-        const setupSection = document.getElementById('mfa-setup-section');
-        const managementSection = document.getElementById('mfa-management-section');
-
-        if (hasVerifiedMFA) {
-          statusEl.innerHTML = '<div class="message success">✓ Two-Factor Authentication is enabled</div>';
-          setupSection.classList.add('hide');
-          managementSection.classList.remove('hide');
-          updateFactorsTable();
-        } else {
-          statusEl.innerHTML = '<div class="message info">⚠ Two-Factor Authentication is not enabled</div>';
-          setupSection.classList.remove('hide');
-          managementSection.classList.add('hide');
-        }
-      } catch (error) {
-        console.error('Error updating MFA status:', error);
-      }
-    }
-
-    // Update factors table
-    function updateFactorsTable() {
-      const tbody = document.getElementById('factors-table-body');
-      tbody.innerHTML = '';
-
-      currentFactors.forEach(factor => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${factor.friendly_name || 'Authenticator App'}</td>
-          <td>${factor.factor_type.toUpperCase()}</td>
-          <td>${factor.status}</td>
-          <td>${new Date(factor.created_at).toLocaleDateString()}</td>
-          <td>
-            ${factor.status === 'verified' ? 
-              `<button onclick="unenrollFactor('${factor.id}')" class="secondary-btn">Remove</button>` : 
-              'Pending'
+        // SECURITY: Rate limiting class
+        class RateLimiter {
+            constructor(maxAttempts = 5, windowMs = 15 * 60 * 1000) {
+                this.attempts = new Map();
+                this.maxAttempts = maxAttempts;
+                this.windowMs = windowMs;
             }
-          </td>
-        `;
-        tbody.appendChild(row);
-      });
-    }
-
-    // Message utility functions
-    function showMessage(elementId, message, type = 'success') {
-      const el = document.getElementById(elementId);
-      el.textContent = message;
-      el.className = `message ${type}`;
-      el.classList.remove('hide');
-    }
-
-    function hideMessage(elementId) {
-      document.getElementById(elementId).classList.add('hide');
-    }
-
-    // Authentication functions
-    async function signUp() {
-      const email = document.getElementById('signup-email').value;
-      const password = document.getElementById('signup-password').value;
-
-      hideMessage('signup-message');
-
-      if (!email || !password) {
-        showMessage('signup-message', 'Please fill in all fields', 'error');
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email: email,
-          password: password
-        });
-
-        if (error) {
-          showMessage('signup-message', error.message, 'error');
-        } else {
-          showMessage('signup-message', 'Account created! Check your email for verification.');
-          document.getElementById('signup-email').value = '';
-          document.getElementById('signup-password').value = '';
-        }
-      } catch (err) {
-        showMessage('signup-message', 'An error occurred during signup', 'error');
-      }
-    }
-
-    async function signIn() {
-      const email = document.getElementById('signin-email').value;
-      const password = document.getElementById('signin-password').value;
-
-      hideMessage('signin-message');
-
-      if (!email || !password) {
-        showMessage('signin-message', 'Please fill in all fields', 'error');
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email,
-          password: password
-        });
-
-        if (error) {
-          showMessage('signin-message', error.message, 'error');
-        } else {
-          showMessage('signin-message', 'Signing in...');
-          document.getElementById('signin-password').value = '';
-          // The auth state change will handle the redirect
-        }
-      } catch (err) {
-        showMessage('signin-message', 'An error occurred during signin', 'error');
-      }
-    }
-
-    async function signOut() {
-      try {
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-          console.error('Sign out error:', error);
-        }
-      } catch (err) {
-        console.error('Sign out failed:', err);
-      }
-    }
-
-    // Password reset functions
-    async function resetPassword() {
-      const email = document.getElementById('reset-email').value;
-
-      hideMessage('reset-message');
-
-      if (!email) {
-        showMessage('reset-message', 'Please enter your email address', 'error');
-        return;
-      }
-
-      try {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin + window.location.pathname + '?page=change-password'
-        });
-
-        if (error) {
-          showMessage('reset-message', error.message, 'error');
-        } else {
-          showMessage('reset-message', 'Password reset email sent! Check your inbox.');
-          document.getElementById('reset-email').value = '';
-        }
-      } catch (err) {
-        showMessage('reset-message', 'An error occurred while sending reset email', 'error');
-      }
-    }
-
-    function togglePasswordReset() {
-      const signinSection = document.getElementById('signin-section');
-      const resetSection = document.getElementById('reset-section');
-
-      if (resetSection.classList.contains('hide')) {
-        signinSection.classList.add('hide');
-        resetSection.classList.remove('hide');
-        hideMessage('signin-message');
-      } else {
-        resetSection.classList.add('hide');
-        signinSection.classList.remove('hide');
-        hideMessage('reset-message');
-      }
-    }
-
-    async function updatePassword() {
-      const newPassword = document.getElementById('new-password').value;
-
-      hideMessage('password-update-message');
-
-      if (!newPassword) {
-        showMessage('password-update-message', 'Please enter a new password', 'error');
-        return;
-      }
-
-      if (newPassword.length < 6) {
-        showMessage('password-update-message', 'Password must be at least 6 characters', 'error');
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.auth.updateUser({ 
-          password: newPassword 
-        });
-
-        if (error) {
-          if (error.message?.includes('AAL2') || error.message?.includes('MFA')) {
-            // User has MFA enabled, need to verify
-            pendingPasswordUpdate = newPassword;
-            await initiateMFAForPasswordChange();
-          } else {
-            showMessage('password-update-message', error.message, 'error');
-          }
-        } else {
-          showMessage('password-update-message', 'Password updated successfully! Redirecting...');
-          setTimeout(() => {
-            window.location.href = window.location.origin + window.location.pathname;
-          }, 2000);
-        }
-      } catch (err) {
-        showMessage('password-update-message', 'An error occurred while updating password', 'error');
-      }
-    }
-
-    async function initiateMFAForPasswordChange() {
-      try {
-        const { data: factors, error } = await supabase.auth.mfa.listFactors();
-        
-        if (error || !factors?.totp?.length) {
-          showMessage('password-update-message', 'MFA verification required but no factors found', 'error');
-          return;
+            
+            isAllowed(identifier) {
+                const now = Date.now();
+                const userAttempts = this.attempts.get(identifier) || [];
+                const recentAttempts = userAttempts.filter(time => now - time < this.windowMs);
+                
+                if (recentAttempts.length >= this.maxAttempts) {
+                    return false;
+                }
+                
+                this.attempts.set(identifier, [...recentAttempts, now]);
+                return true;
+            }
+            
+            getRemainingTime(identifier) {
+                const userAttempts = this.attempts.get(identifier) || [];
+                if (userAttempts.length === 0) return 0;
+                
+                const oldestAttempt = Math.min(...userAttempts);
+                const timeRemaining = this.windowMs - (Date.now() - oldestAttempt);
+                return Math.max(0, timeRemaining);
+            }
         }
 
-        const verifiedFactor = factors.totp.find(f => f.status === 'verified');
-        if (!verifiedFactor) {
-          showMessage('password-update-message', 'No verified MFA factors found', 'error');
-          return;
-        }
+        // Initialize rate limiter
+        const loginLimiter = new RateLimiter(5, 15 * 60 * 1000);
 
-        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
-          factorId: verifiedFactor.id
-        });
+        // SECURITY: Safe DOM manipulation utilities
+        const SafeDOM = {
+            // Safe alternative to innerHTML
+            setTextContent(element, text) {
+                if (element) {
+                    element.textContent = text || '';
+                }
+            },
+            
+            // Safe way to create elements with text
+            createElement(tag, textContent = '', attributes = {}) {
+                const element = document.createElement(tag);
+                if (textContent) {
+                    element.textContent = textContent;
+                }
+                Object.entries(attributes).forEach(([key, value]) => {
+                    element.setAttribute(key, String(value));
+                });
+                return element;
+            },
+            
+            // Safe way to clear and populate container
+            replaceContent(container, ...elements) {
+                if (container) {
+                    container.replaceChildren(...elements);
+                }
+            },
 
-        if (challengeError) {
-          showMessage('password-update-message', 'Failed to create MFA challenge', 'error');
-          return;
-        }
+            // Safe way to show/hide elements
+            show(element) {
+                if (element) element.style.display = 'block';
+            },
 
-        challengeData = {
-          challengeId: challenge.id,
-          factorId: verifiedFactor.id
+            hide(element) {
+                if (element) element.style.display = 'none';
+            }
         };
 
-        // Show MFA challenge section
-        document.getElementById('password-mfa-section').classList.remove('hide');
-        showMessage('password-update-message', 'MFA verification required to change password', 'info');
+        // SECURITY: Safe error display
+        function displayError(message) {
+            const errorContainer = document.getElementById('errorMessage');
+            // SECURITY: Never display raw error messages that might contain sensitive data
+            let safeMessage = 'An error occurred. Please try again.';
+            
+            if (typeof message === 'string') {
+                if (message.includes('duplicate key') || message.includes('already registered')) {
+                    safeMessage = 'This email is already registered.';
+                } else if (message.includes('invalid_grant') || message.includes('Invalid login')) {
+                    safeMessage = 'Invalid email or password.';
+                } else if (message.includes('Email not confirmed')) {
+                    safeMessage = 'Please check your email and confirm your account.';
+                } else if (message.includes('too many requests') || message.includes('rate limit')) {
+                    safeMessage = 'Too many attempts. Please wait before trying again.';
+                }
+            }
+            
+            SafeDOM.setTextContent(errorContainer, safeMessage);
+            SafeDOM.show(errorContainer);
+            
+            // Auto-hide error after 5 seconds
+            setTimeout(() => {
+                SafeDOM.hide(errorContainer);
+            }, 5000);
+        }
 
-      } catch (error) {
-        showMessage('password-update-message', 'Error setting up MFA verification', 'error');
-      }
-    }
+        function displaySuccess(message) {
+            const successContainer = document.getElementById('successMessage');
+            SafeDOM.setTextContent(successContainer, message);
+            SafeDOM.show(successContainer);
+            
+            setTimeout(() => {
+                SafeDOM.hide(successContainer);
+            }, 5000);
+        }
 
-    async function verifyPasswordMFA() {
-      const code = document.getElementById('password-mfa-code').value;
-      
-      hideMessage('password-mfa-message');
+        // SECURITY: Safe QR code display
+        function displayQRCode(qrCodeDataUrl) {
+            const qrContainer = document.getElementById('qrContainer');
+            const qrDisplay = document.getElementById('qrCodeDisplay');
+            
+            // SECURITY: Use createElement instead of innerHTML
+            const img = SafeDOM.createElement('img', '', {
+                'src': qrCodeDataUrl,
+                'alt': 'QR Code for MFA setup',
+                'style': 'max-width: 200px; height: auto; border: 1px solid #ddd;'
+            });
+            
+            SafeDOM.replaceContent(qrDisplay, img);
+            SafeDOM.show(qrContainer);
+        }
 
-      if (!code || code.length !== 6) {
-        showMessage('password-mfa-message', 'Please enter a 6-digit code', 'error');
-        return;
-      }
+        // SECURITY: Safe MFA factors table population
+        function displayMFAFactors(factors) {
+            const tableBody = document.getElementById('mfaFactorsBody');
+            const container = document.getElementById('mfaFactorsContainer');
+            
+            // Clear existing content safely
+            SafeDOM.replaceContent(tableBody);
+            
+            if (!factors || factors.length === 0) {
+                const row = SafeDOM.createElement('tr');
+                const cell = SafeDOM.createElement('td', 'No MFA factors configured', { 'colspan': '4' });
+                row.appendChild(cell);
+                tableBody.appendChild(row);
+            } else {
+                factors.forEach(factor => {
+                    const row = document.createElement('tr');
+                    
+                    // SECURITY: Use textContent for all user data
+                    const typeCell = SafeDOM.createElement('td', factor.type || 'Unknown');
+                    const statusCell = SafeDOM.createElement('td', factor.status || 'Unknown');
+                    const createdCell = SafeDOM.createElement('td', 
+                        factor.created_at ? new Date(factor.created_at).toLocaleDateString() : 'Unknown'
+                    );
+                    
+                    const actionsCell = document.createElement('td');
+                    const deleteButton = SafeDOM.createElement('button', 'Delete', {
+                        'type': 'button',
+                        'data-factor-id': factor.id,
+                        'style': 'background: #dc3545; font-size: 12px; padding: 4px 8px;'
+                    });
+                    
+                    deleteButton.addEventListener('click', (e) => {
+                        const factorId = e.target.getAttribute('data-factor-id');
+                        deleteMFAFactor(factorId);
+                    });
+                    
+                    actionsCell.appendChild(deleteButton);
+                    
+                    row.appendChild(typeCell);
+                    row.appendChild(statusCell);
+                    row.appendChild(createdCell);
+                    row.appendChild(actionsCell);
+                    
+                    tableBody.appendChild(row);
+                });
+            }
+            
+            SafeDOM.show(container);
+        }
 
-      if (!challengeData || !pendingPasswordUpdate) {
-        showMessage('password-mfa-message', 'Invalid verification state', 'error');
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.auth.mfa.verify({
-          factorId: challengeData.factorId,
-          challengeId: challengeData.challengeId,
-          code: code
+        // Login form handler with rate limiting
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            
+            // SECURITY: Input validation
+            if (!email || !password) {
+                displayError('Please enter both email and password.');
+                return;
+            }
+            
+            // SECURITY: Rate limiting check
+            if (!loginLimiter.isAllowed(email)) {
+                const remainingTime = Math.ceil(loginLimiter.getRemainingTime(email) / 1000 / 60);
+                displayError(`Too many login attempts. Please wait ${remainingTime} minutes.`);
+                SafeDOM.show(document.getElementById('rateLimitNotice'));
+                return;
+            }
+            
+            const loginButton = document.getElementById('loginButton');
+            loginButton.disabled = true;
+            SafeDOM.setTextContent(loginButton, 'Logging in...');
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (error) {
+                    displayError(error.message);
+                    return;
+                }
+                
+                // Successful login
+                displaySuccess('Login successful!');
+                showDashboard(data.user);
+                
+            } catch (error) {
+                displayError('Network error. Please check your connection.');
+            } finally {
+                loginButton.disabled = false;
+                SafeDOM.setTextContent(loginButton, 'Login');
+                SafeDOM.hide(document.getElementById('rateLimitNotice'));
+            }
         });
 
-        if (error) {
-          showMessage('password-mfa-message', 'Invalid code: ' + error.message, 'error');
-          return;
-        }
-
-        showMessage('password-mfa-message', 'MFA verified! Updating password...');
-
-        // Now try password update again
-        const { data: updateData, error: updateError } = await supabase.auth.updateUser({ 
-          password: pendingPasswordUpdate 
+        // Registration form handler
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            // SECURITY: Input validation
+            if (!email || !password || !confirmPassword) {
+                displayError('Please fill in all fields.');
+                return;
+            }
+            
+            // Validate password match
+            if (password !== confirmPassword) {
+                displayError('Passwords do not match.');
+                return;
+            }
+            
+            // Validate password strength
+            if (password.length < 12) {
+                displayError('Password must be at least 12 characters long.');
+                return;
+            }
+            
+            const registerButton = document.getElementById('registerButton');
+            registerButton.disabled = true;
+            SafeDOM.setTextContent(registerButton, 'Registering...');
+            
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        emailRedirectTo: `${window.location.origin}/confirm`
+                    }
+                });
+                
+                if (error) {
+                    displayError(error.message);
+                    return;
+                }
+                
+                displaySuccess('Registration successful! Please check your email for confirmation.');
+                
+            } catch (error) {
+                displayError('Network error. Please check your connection.');
+            } finally {
+                registerButton.disabled = false;
+                SafeDOM.setTextContent(registerButton, 'Register');
+            }
         });
 
-        if (updateError) {
-          showMessage('password-mfa-message', 'Password update failed: ' + updateError.message, 'error');
-        } else {
-          showMessage('password-mfa-message', 'Password updated successfully! Redirecting...');
-          
-          // Clean up
-          challengeData = null;
-          pendingPasswordUpdate = null;
-          document.getElementById('password-mfa-code').value = '';
-          
-          setTimeout(() => {
-            window.location.href = window.location.origin + window.location.pathname;
-          }, 2000);
-        }
-
-      } catch (error) {
-        showMessage('password-mfa-message', 'Error verifying MFA code', 'error');
-      }
-    }
-
-    function cancelPasswordMFA() {
-      challengeData = null;
-      pendingPasswordUpdate = null;
-      document.getElementById('password-mfa-code').value = '';
-      document.getElementById('password-mfa-section').classList.add('hide');
-      hideMessage('password-mfa-message');
-    }
-
-    // MFA Challenge verification (following EXACT official docs pattern)
-    async function verifyMFAChallenge() {
-      const code = document.getElementById('mfa-challenge-input').value;
-      
-      hideMessage('mfa-challenge-message');
-
-      if (!code || code.length !== 6) {
-        showMessage('mfa-challenge-message', 'Please enter a 6-digit code', 'error');
-        return;
-      }
-
-      if (!challengeData || !challengeData.factorId) {
-        showMessage('mfa-challenge-message', 'No active MFA session', 'error');
-        return;
-      }
-
-      try {
-        // Official pattern: create challenge and verify immediately
-        const challenge = await supabase.auth.mfa.challenge({ 
-          factorId: challengeData.factorId 
-        });
-        
-        if (challenge.error) {
-          showMessage('mfa-challenge-message', 'Challenge error: ' + challenge.error.message, 'error');
-          return;
-        }
-
-        const verify = await supabase.auth.mfa.verify({
-          factorId: challengeData.factorId,
-          challengeId: challenge.data.id,
-          code: code,
+        // Navigation between login and register
+        document.getElementById('showRegisterBtn').addEventListener('click', () => {
+            SafeDOM.hide(document.getElementById('loginSection'));
+            SafeDOM.show(document.getElementById('registerSection'));
         });
 
-        if (verify.error) {
-          showMessage('mfa-challenge-message', 'Invalid code: ' + verify.error.message, 'error');
-          return;
-        }
-
-        showMessage('mfa-challenge-message', 'MFA verified! Signing you in...');
-        
-        // Clear challenge data
-        challengeData = null;
-        document.getElementById('mfa-challenge-input').value = '';
-
-        // The session refresh happens automatically - redirect to main app
-        setTimeout(() => {
-          showMainApp(currentUser);
-        }, 1000);
-
-      } catch (error) {
-        console.error('MFA verification error:', error);
-        showMessage('mfa-challenge-message', 'Error verifying MFA code', 'error');
-      }
-    }
-
-    function cancelMFAFlow() {
-      challengeData = null;
-      currentUser = null;
-      document.getElementById('mfa-challenge-input').value = '';
-      showAuthSection();
-    }
-
-    // MFA Enrollment (following EXACT official docs pattern)
-    async function startMFAEnrollment() {
-      hideMessage('enrollment-message');
-      
-      try {
-        // Official Supabase enrollment pattern - no friendlyName in basic call
-        const { data, error } = await supabase.auth.mfa.enroll({
-          factorType: 'totp',
+        document.getElementById('showLoginBtn').addEventListener('click', () => {
+            SafeDOM.hide(document.getElementById('registerSection'));
+            SafeDOM.show(document.getElementById('loginSection'));
         });
 
-        if (error) {
-          showMessage('enrollment-message', 'Failed to start MFA enrollment: ' + error.message, 'error');
-          return;
+        // Dashboard functions
+        async function showDashboard(user) {
+            SafeDOM.hide(document.getElementById('loginSection'));
+            SafeDOM.hide(document.getElementById('registerSection'));
+            SafeDOM.show(document.getElementById('dashboardSection'));
+            
+            // Load household info
+            await loadHouseholdInfo();
+            await loadAccounts();
         }
 
-        enrollmentData = data;
+        async function loadHouseholdInfo() {
+            try {
+                const { data, error } = await supabase.rpc('get_user_household_id');
+                
+                if (!error && data) {
+                    const householdInfo = document.getElementById('householdInfo');
+                    const infoElement = SafeDOM.createElement('p', `Household ID: ${data}`);
+                    SafeDOM.replaceContent(householdInfo, infoElement);
+                }
+            } catch (error) {
+                console.error('Error loading household info:', error);
+            }
+        }
 
-        // Official pattern: show QR code as data URL in img tag
-        const qrCodeEl = document.getElementById('qr-code-display');
-        qrCodeEl.innerHTML = `<img src="${data.totp.qr_code}" alt="QR Code for MFA setup" style="max-width: 200px;">`;
-        
-        // Display secret key for manual entry
-        document.getElementById('secret-key-display').textContent = data.totp.secret;
+        async function loadAccounts() {
+            try {
+                const { data, error } = await supabase
+                    .from('accounts')
+                    .select('account_id, account_name, account_type')
+                    .order('account_name');
+                
+                if (!error && data) {
+                    const accountsList = document.getElementById('accountsList');
+                    const title = SafeDOM.createElement('h3', 'Your Accounts');
+                    const list = document.createElement('ul');
+                    
+                    data.forEach(account => {
+                        const item = SafeDOM.createElement('li', 
+                            `${account.account_name} (${account.account_type})`
+                        );
+                        list.appendChild(item);
+                    });
+                    
+                    SafeDOM.replaceContent(accountsList, title, list);
+                }
+            } catch (error) {
+                console.error('Error loading accounts:', error);
+            }
+        }
 
-        // Show enrollment section
-        document.getElementById('mfa-setup-section').classList.add('hide');
-        document.getElementById('mfa-enrollment-section').classList.remove('hide');
-        
-      } catch (error) {
-        console.error('MFA enrollment error:', error);
-        showMessage('enrollment-message', 'Error starting MFA enrollment', 'error');
-      }
-    }
+        // MFA factor deletion (secure)
+        async function deleteMFAFactor(factorId) {
+            if (!confirm('Are you sure you want to delete this MFA factor?')) {
+                return;
+            }
+            
+            try {
+                const { error } = await supabase.auth.mfa.deleteFactor({ id: factorId });
+                
+                if (error) {
+                    displayError('Failed to delete MFA factor.');
+                    return;
+                }
+                
+                // Refresh MFA factors list
+                loadMFAFactors();
+                
+            } catch (error) {
+                displayError('Network error. Please try again.');
+            }
+        }
 
-    async function verifyMFAEnrollment() {
-      const code = document.getElementById('enrollment-verification-code').value;
-      
-      hideMessage('enrollment-message');
+        // Load MFA factors (secure)
+        async function loadMFAFactors() {
+            try {
+                const { data, error } = await supabase.auth.mfa.listFactors();
+                
+                if (error) {
+                    displayError('Failed to load MFA factors.');
+                    return;
+                }
+                
+                displayMFAFactors(data.factors || []);
+                
+            } catch (error) {
+                displayError('Network error. Please try again.');
+            }
+        }
 
-      if (!code || code.length !== 6) {
-        showMessage('enrollment-message', 'Please enter a 6-digit code', 'error');
-        return;
-      }
-
-      if (!enrollmentData) {
-        showMessage('enrollment-message', 'No enrollment in progress', 'error');
-        return;
-      }
-
-      try {
-        // Official pattern: challenge then verify
-        const challenge = await supabase.auth.mfa.challenge({
-          factorId: enrollmentData.id
+        // Logout handler
+        document.getElementById('logoutButton').addEventListener('click', async () => {
+            try {
+                await supabase.auth.signOut();
+                SafeDOM.hide(document.getElementById('dashboardSection'));
+                SafeDOM.show(document.getElementById('loginSection'));
+                
+                // Clear form data
+                document.getElementById('loginForm').reset();
+                document.getElementById('registerForm').reset();
+                
+            } catch (error) {
+                displayError('Error during logout.');
+            }
         });
 
-        if (challenge.error) {
-          showMessage('enrollment-message', 'Failed to create challenge: ' + challenge.error.message, 'error');
-          return;
-        }
-
-        const verify = await supabase.auth.mfa.verify({
-          factorId: enrollmentData.id,
-          challengeId: challenge.data.id,
-          code: code,
+        // SECURITY: Clear sensitive form data on page unload
+        window.addEventListener('beforeunload', () => {
+            document.getElementById('password').value = '';
+            document.getElementById('regPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
         });
 
-        if (verify.error) {
-          showMessage('enrollment-message', 'Invalid code: ' + verify.error.message, 'error');
-          return;
-        }
-
-        showMessage('enrollment-message', 'MFA setup successful!');
-        
-        // Clean up and refresh
-        enrollmentData = null;
-        document.getElementById('enrollment-verification-code').value = '';
-        document.getElementById('mfa-enrollment-section').classList.add('hide');
-        
-        await updateMFAStatus();
-        
-      } catch (error) {
-        console.error('MFA enrollment error:', error);
-        showMessage('enrollment-message', 'Error verifying MFA enrollment', 'error');
-      }
-    }
-
-    function cancelMFAEnrollment() {
-      enrollmentData = null;
-      document.getElementById('enrollment-verification-code').value = '';
-      document.getElementById('mfa-enrollment-section').classList.add('hide');
-      document.getElementById('mfa-setup-section').classList.remove('hide');
-      hideMessage('enrollment-message');
-    }
-
-    // Unenroll MFA factor
-    async function unenrollFactor(factorId) {
-      if (!confirm('Are you sure you want to remove this MFA factor? This will reduce your account security.')) {
-        return;
-      }
-
-      try {
-        const { error } = await supabase.auth.mfa.unenroll({ factorId });
-
-        if (error) {
-          showMessage('unenroll-message', 'Failed to remove MFA factor: ' + error.message, 'error');
-          return;
-        }
-
-        showMessage('unenroll-message', 'MFA factor removed successfully');
-        await updateMFAStatus();
-
-      } catch (error) {
-        showMessage('unenroll-message', 'Error removing MFA factor', 'error');
-      }
-    }
-
-    // Auth state change listener
-    supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email || 'no user');
-      
-      if (event === 'SIGNED_IN') {
-        // Re-initialize app after sign in
-        setTimeout(() => initializeApp(), 100);
-      } else if (event === 'SIGNED_OUT') {
-        showAuthSection();
-      } else if (event === 'PASSWORD_RECOVERY') {
-        showPasswordRecoveryScreen(session?.user);
-      }
-    });
-
-    // Initialize app on load
-    initializeApp();
-  </script>
+        // Check initial auth state
+        supabase.auth.onAuthStateChange((event, session) => {
+            if (session) {
+                showDashboard(session.user);
+            } else {
+                SafeDOM.show(document.getElementById('loginSection'));
+                SafeDOM.hide(document.getElementById('dashboardSection'));
+            }
+        });
+    </script>
 </body>
 </html>
