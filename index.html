@@ -535,7 +535,25 @@
       const { data: { session }, error } = await supabase.auth.getSession();
       log('getSession error', error ?? 'none');
       log('getSession session', session ?? null);
+      
       if (session?.user?.email) {
+        // Check if this is a recovery session before doing normal login
+        if (isRecoverySession(session)) {
+          log('Recovery session detected in refreshSession', 'Showing recovery form');
+          signupCard.classList.add('hide');
+          signinCard.classList.add('hide');
+          forgotCard.classList.add('hide');
+          mfaCard.classList.add('hide');
+          mfaLoginCard.classList.add('hide');
+          recoveryCard.classList.remove('hide');
+          
+          statusEl.textContent = 'Password recovery mode - set your new password';
+          statusEl.classList.remove('err');
+          statusEl.classList.add('ok');
+          signoutBtn.classList.remove('hide'); // Allow sign out during recovery
+          return; // Don't do normal login flow
+        }
+        
         setSignedIn(session.user.email);
         trackActivity('session_refreshed', 'Page load with existing session');
         await enforceMfa();
