@@ -1,958 +1,862 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Budget Tracker</title>
-    
-    <!-- SECURITY: Updated Content Security Policy - More permissive for needed resources -->
-    <meta http-equiv="Content-Security-Policy" content="
-        default-src 'self';
-        script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.skypack.dev https://cdn.jsdelivr.net https://unpkg.com;
-        style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
-        img-src 'self' data: https: blob:;
-        connect-src 'self' https://*.supabase.co https://cdn.skypack.dev wss://*.supabase.co;
-        font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com;
-        media-src 'self';
-        object-src 'none';
-        base-uri 'self';
-        form-action 'self';
-        frame-ancestors 'none';
-        upgrade-insecure-requests;
-    ">
-    
-    <!-- SECURITY: Additional security headers -->
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
-    <meta http-equiv="X-Frame-Options" content="DENY">
-    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=()">
-    
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .form-group { margin: 15px 0; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #374151; }
-        .form-group input { width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; transition: border-color 0.2s; box-sizing: border-box; }
-        .form-group input:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1); }
-        .error-message { color: #dc3545; margin: 10px 0; display: none; padding: 10px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; font-size: 14px; }
-        .success-message { color: #155724; margin: 10px 0; display: none; padding: 10px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; font-size: 14px; }
-        .rate-limit-notice { color: #856404; margin: 10px 0; display: none; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; font-size: 14px; }
-        button { background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: 600; width: 100%; transition: background-color 0.2s; }
-        button:hover:not(:disabled) { background: #0056b3; }
-        button:disabled { background: #6c757d; cursor: not-allowed; }
-        .btn-secondary { background: #6c757d; margin-top: 10px; }
-        .btn-secondary:hover:not(:disabled) { background: #545b62; }
-        .mfa-container, .qr-container { margin: 20px 0; }
-        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
-        th, td { border: 1px solid #ddd; padding: 12px 8px; text-align: left; }
-        th { background-color: #f8f9fa; font-weight: 600; }
-        .password-strength { margin: 5px 0; font-size: 12px; }
-        .strength-weak { color: #dc3545; }
-        .strength-medium { color: #ffc107; }
-        .strength-strong { color: #28a745; }
-        .captcha-container { margin: 15px 0; padding: 15px; border: 2px dashed #dee2e6; border-radius: 6px; text-align: center; background: #f8f9fa; }
-        .security-notice { background: #e7f3ff; border: 1px solid #b8daff; color: #004085; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; }
-        .dashboard-card { background: white; border-radius: 8px; padding: 20px; margin: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .account-item { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
-        .account-item:last-child { border-bottom: none; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Budget Tracker – Email/Password + REQUIRED MFA (TOTP)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, Arial; max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
+    h2 { margin-top: 1.5rem; }
+    form { display: grid; gap: 8px; max-width: 460px; }
+    input, button { padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; }
+    button { cursor: pointer; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .timeout-warning { position: fixed; top: 20px; right: 20px; background: #ff6b35; color: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; max-width: 300px; }
+    .timeout-warning button { background: white; color: #ff6b35; border: none; padding: 8px 16px; border-radius: 4px; margin-top: 10px; cursor: pointer; }
+    .remember-email { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+    .row { display: flex; gap: 10px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+    .card { border: 1px solid #e5e5e5; border-radius: 10px; padding: 14px; margin: 10px 0; }
+    .hide { display: none; }
+    .ok { color:#0a7; } .err { color:#c00; }
+    pre { background:#f6f6f6; padding:10px; border-radius:8px; overflow:auto; }
+    .secret { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; background:#fff; padding:6px 8px; border:1px dashed #bbb; border-radius:8px; display:inline-block; }
+    img.qr { width: 220px; height: 220px; border: 1px solid #ddd; border-radius: 8px; }
+    .gate { opacity: .45; pointer-events: none; filter: grayscale(0.2); }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🔐 Secure Budget Tracker</h1>
-        
-        <!-- SECURITY: Added security notice -->
-        <div class="security-notice">
-            <strong>Security Notice:</strong> This application uses enterprise-grade security including multi-factor authentication, audit logging, and data encryption.
-        </div>
-        
-        <!-- Login Form with Enhanced Security -->
-        <div id="loginSection">
-            <h2>Login</h2>
-            <form id="loginForm" autocomplete="on">
-                <div class="form-group">
-                    <label for="email">Email Address:</label>
-                    <input 
-                        type="email" 
-                        id="email" 
-                        name="email"
-                        autocomplete="email"
-                        required
-                        placeholder="your.email@example.com"
-                        spellcheck="false"
-                        data-lpignore="true"
-                    >
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password"
-                        autocomplete="current-password"
-                        required
-                        placeholder="Enter your password"
-                        minlength="8"
-                        data-lpignore="true"
-                    >
-                </div>
-                
-                <button type="submit" id="loginButton">Sign In</button>
-            </form>
-            
-            <div id="rateLimitNotice" class="rate-limit-notice">
-                ⚠️ Too many login attempts. Please wait before trying again.
-            </div>
-            
-            <div id="errorMessage" class="error-message"></div>
-            <div id="successMessage" class="success-message"></div>
-            
-            <p><button type="button" class="btn-secondary" id="showRegisterBtn">Create New Account</button></p>
-        </div>
+  <h1>Budget Tracker – Email/Password + REQUIRED MFA (TOTP)</h1>
 
-        <!-- Registration Form with Enhanced Security -->
-        <div id="registerSection" style="display: none;">
-            <h2>Create Account</h2>
-            <form id="registerForm" autocomplete="on">
-                <div class="form-group">
-                    <label for="regEmail">Email Address:</label>
-                    <input 
-                        type="email" 
-                        id="regEmail" 
-                        name="email"
-                        autocomplete="email"
-                        required
-                        placeholder="your.email@example.com"
-                        spellcheck="false"
-                        data-lpignore="true"
-                    >
-                </div>
-                
-                <div class="form-group">
-                    <label for="regPassword">Password (minimum 12 characters):</label>
-                    <input 
-                        type="password" 
-                        id="regPassword" 
-                        name="new-password"
-                        autocomplete="new-password"
-                        required
-                        placeholder="Create a strong password"
-                        minlength="12"
-                        data-lpignore="true"
-                    >
-                    <div id="passwordStrength" class="password-strength"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="confirmPassword">Confirm Password:</label>
-                    <input 
-                        type="password" 
-                        id="confirmPassword" 
-                        name="confirm-password"
-                        autocomplete="new-password"
-                        required
-                        placeholder="Confirm your password"
-                        minlength="12"
-                        data-lpignore="true"
-                    >
-                </div>
-                
-                <!-- SECURITY: Enhanced CAPTCHA placeholder -->
-                <div class="form-group">
-                    <div id="captchaContainer" class="captcha-container">
-                        <div style="padding: 20px;">
-                            <strong>🛡️ Security Verification Required</strong>
-                            <br><small>CAPTCHA integration point - implement with Turnstile or hCaptcha</small>
-                            <br><input type="checkbox" id="captchaCheck" required> I'm not a robot
-                        </div>
-                    </div>
-                </div>
-                
-                <button type="submit" id="registerButton">Create Account</button>
-            </form>
-            
-            <p><button type="button" class="btn-secondary" id="showLoginBtn">← Back to Login</button></p>
-        </div>
+  <p id="status" class="err">Not signed in.</p>
+  <div class="row">
+    <button id="signout" class="hide">Sign out</button>
+    <span id="session-timer" class="hide"></span>
+  </div>
 
-        <!-- QR Code Display Container (secure) -->
-        <div id="qrContainer" class="qr-container" style="display: none;">
-            <h3>🔐 Multi-Factor Authentication Setup</h3>
-            <div id="qrCodeDisplay" style="text-align: center; padding: 20px;"></div>
-            <p style="font-size: 14px; color: #6c757d;">
-                Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
-            </p>
-        </div>
+  <!-- Session Timeout Warning -->
+  <div id="timeout-warning" class="timeout-warning hide">
+    <div><strong>Session Expiring Soon!</strong></div>
+    <div>Your session will expire in <span id="timeout-countdown">5:00</span></div>
+    <button id="extend-session">Stay Logged In</button>
+  </div>
 
-        <!-- MFA Factors Table Container (secure) -->
-        <div id="mfaFactorsContainer" class="mfa-container" style="display: none;">
-            <h3>🛡️ Security Factors</h3>
-            <table id="mfaFactorsTable">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="mfaFactorsBody">
-                    <!-- Populated securely via JavaScript -->
-                </tbody>
-            </table>
-        </div>
+  <!-- Auth: Sign up / Sign in -->
+  <div class="card" id="signup-card">
+    <h2>Create account</h2>
+    <form id="signup-form">
+      <label>Email <input id="su-email" type="email" required placeholder="you@example.com" /></label>
+      <label>Password <input id="su-password" type="password" required minlength="6" placeholder="At least 6 characters" /></label>
+      <button id="signup-btn" type="submit">Sign up</button>
+      <div id="signup-msg"></div>
+    </form>
+  </div>
 
-        <!-- Dashboard (shown after login) -->
-        <div id="dashboardSection" style="display: none;">
-            <h2>📊 Dashboard</h2>
-            
-            <div class="dashboard-card">
-                <h3>Household Information</h3>
-                <div id="householdInfo">Loading...</div>
-            </div>
-            
-            <div class="dashboard-card">
-                <h3>Your Accounts</h3>
-                <div id="accountsList">Loading...</div>
-            </div>
-            
-            <div class="dashboard-card">
-                <h3>Security</h3>
-                <button type="button" id="setupMfaButton" style="background: #28a745; margin-right: 10px;">Setup MFA</button>
-                <button type="button" id="viewAuditLogButton" style="background: #6c757d;">View Audit Log</button>
-            </div>
-            
-            <button type="button" class="btn-secondary" id="logoutButton">Sign Out</button>
+  <div class="card" id="signin-card">
+    <h2>Sign in</h2>
+    <form id="signin-form">
+      <label>Email <input id="si-email" type="email" required placeholder="you@example.com" /></label>
+      <label>Password <input id="si-password" type="password" required placeholder="Your password" /></label>
+      <div class="remember-email">
+        <input type="checkbox" id="remember-email" checked />
+        <label for="remember-email">Remember my email address</label>
+      </div>
+      <button id="signin-btn" type="submit">Sign in</button>
+      <div id="signin-msg"></div>
+    </form>
+    <button id="forgot-btn">Forgot password?</button>
+  </div>
+
+  <!-- Password reset -->
+  <div class="card hide" id="forgot-card">
+    <h2>Reset password</h2>
+    <form id="forgot-form">
+      <label>Email <input id="fp-email" type="email" required placeholder="you@example.com" /></label>
+      <button id="forgot-send" type="submit">Send reset email</button>
+      <div id="forgot-msg"></div>
+    </form>
+  </div>
+
+  <div class="card hide" id="recovery-card">
+    <h2>Set a new password</h2>
+    <form id="recovery-form">
+      <label>New password <input id="rp-password" type="password" required minlength="6" /></label>
+      <button id="recovery-save" type="submit">Save new password</button>
+      <div id="recovery-msg"></div>
+    </form>
+  </div>
+
+  <!-- ===== REQUIRED MFA (TOTP) SECTION ===== -->
+  <div class="card hide" id="mfa-card">
+    <h2>MFA Required – Set up TOTP</h2>
+    <p id="mfa-status" class="err">MFA not enabled. You must complete setup to continue.</p>
+
+    <div id="mfa-enroll-block">
+      <h3>Enable MFA (TOTP)</h3>
+      <button id="mfa-start" type="button">Generate QR / Setup key</button>
+
+      <div id="mfa-enroll-ui" class="hide">
+        <div class="row">
+          <img id="mfa-qr" class="qr" alt="TOTP QR" />
+          <div>
+            <div>Setup key (Base32): <span id="mfa-secret" class="secret"></span></div>
+            <div class="row"><a id="mfa-otpauth" href="#" rel="noopener">Add on this phone</a></div>
+          </div>
         </div>
+        <div class="row">
+          <label>6-digit code <input id="mfa-code" type="text" inputmode="numeric" pattern="\\d{6}" placeholder="123456" /></label>
+          <button id="mfa-verify" type="button">Verify & Activate</button>
+        </div>
+        <div id="mfa-enroll-msg"></div>
+      </div>
     </div>
 
-    <script type="module">
-        // SECURITY: Initialize Supabase client safely
-        let supabase = null;
+    <div id="mfa-already-block" class="hide">
+      <h3 class="ok">MFA is enabled</h3>
+      <div id="mfa-factors"></div>
+      <p class="ok">You can now use the app normally.</p>
+    </div>
+  </div>
+
+  <!-- MFA during sign-in (when already enrolled) -->
+  <div class="card hide" id="mfa-login-card">
+    <h2>Verify MFA Code</h2>
+    <p>Enter the 6-digit code from your authenticator app.</p>
+    <div class="row">
+      <input id="mfa-login-code" type="text" inputmode="numeric" pattern="\\d{6}" placeholder="123456" />
+      <button id="mfa-login-verify" type="button">Verify</button>
+    </div>
+    <div id="mfa-login-msg"></div>
+  </div>
+
+  <!-- GATED APP CONTENT -->
+  <div id="app-gated" class="gate">
+    <div class="card">
+      <h2>Paychecks</h2>
+      <div class="row">
+        <button id="read" type="button">Load latest</button>
+      </div>
+      <pre id="out"></pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Debug</h2>
+    <pre id="log"></pre>
+  </div>
+
+  <script type="module">
+    import { supabase } from './supabaseClient.js';
+
+    // ===== Elements
+    const statusEl = document.getElementById('status');
+    const logEl = document.getElementById('log');
+    const sessionTimerEl = document.getElementById('session-timer');
+    const timeoutWarningEl = document.getElementById('timeout-warning');
+    const timeoutCountdownEl = document.getElementById('timeout-countdown');
+    const extendSessionBtn = document.getElementById('extend-session');
+
+    const signupCard = document.getElementById('signup-card');
+    const signinCard = document.getElementById('signin-card');
+    const signoutBtn = document.getElementById('signout');
+    const rememberEmailCheckbox = document.getElementById('remember-email');
+
+    const signupForm = document.getElementById('signup-form');
+    const signupMsg = document.getElementById('signup-msg');
+    const signinForm = document.getElementById('signin-form');
+    const signinMsg = document.getElementById('signin-msg');
+
+    const forgotBtn = document.getElementById('forgot-btn');
+    const forgotCard = document.getElementById('forgot-card');
+    const forgotForm = document.getElementById('forgot-form');
+    const forgotMsg = document.getElementById('forgot-msg');
+
+    const recoveryCard = document.getElementById('recovery-card');
+    const recoveryForm = document.getElementById('recovery-form');
+    const recoveryMsg = document.getElementById('recovery-msg');
+
+    // MFA UI
+    const mfaCard = document.getElementById('mfa-card');
+    const mfaStatus = document.getElementById('mfa-status');
+    const mfaEnrollBlock = document.getElementById('mfa-enroll-block');
+    const mfaStartBtn = document.getElementById('mfa-start');
+    const mfaEnrollUI = document.getElementById('mfa-enroll-ui');
+    const mfaQR = document.getElementById('mfa-qr');
+    const mfaSecret = document.getElementById('mfa-secret');
+    const mfaOtpAuth = document.getElementById('mfa-otpauth');
+    const mfaCode = document.getElementById('mfa-code');
+    const mfaVerifyBtn = document.getElementById('mfa-verify');
+    const mfaEnrollMsg = document.getElementById('mfa-enroll-msg');
+    const mfaAlreadyBlock = document.getElementById('mfa-already-block');
+    const mfaFactorsDiv = document.getElementById('mfa-factors');
+
+    const mfaLoginCard = document.getElementById('mfa-login-card');
+    const mfaLoginCode = document.getElementById('mfa-login-code');
+    const mfaLoginVerifyBtn = document.getElementById('mfa-login-verify');
+    const mfaLoginMsg = document.getElementById('mfa-login-msg');
+
+    // App
+    const appGated = document.getElementById('app-gated');
+    const readBtn = document.getElementById('read');
+    const outEl = document.getElementById('out');
+
+    // ===== State
+    const REQUIRE_MFA = true;
+    const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+    const WARNING_TIME_MS = 25 * 60 * 1000; // 25 minutes (5 min warning)
+    
+    let pendingMfa = { factorId: null, challengeId: null };
+    let enrollFactorId = null;
+    let currentLoginId = null;
+    let sessionTimer = null;
+    let warningTimer = null;
+    let lastActivityTime = Date.now();
+
+    // ===== Helpers
+    const log = (label, val) => {
+      const msg = `${label}: ${typeof val === 'string' ? val : JSON.stringify(val, null, 2)}`;
+      logEl.textContent += msg + "\n\n";
+      console.log(label, val);
+    };
+
+    // Email storage management
+    const saveEmail = (email, remember) => {
+      if (remember) {
+        localStorage.setItem('budget_tracker_email', email);
+      } else {
+        localStorage.removeItem('budget_tracker_email');
+      }
+    };
+
+    const loadSavedEmail = () => {
+      const saved = localStorage.getItem('budget_tracker_email');
+      if (saved) {
+        document.getElementById('si-email').value = saved;
+        rememberEmailCheckbox.checked = true;
+      }
+    };
+
+    // Enhanced IP address detection with multiple fallbacks
+    const getClientIP = async () => {
+      try {
+        // Try multiple IP services for reliability
+        const services = [
+          { url: 'https://api.ipify.org?format=json', key: 'ip' },
+          { url: 'https://httpbin.org/ip', key: 'origin' },
+          { url: 'https://api.myip.com', key: 'ip' }
+        ];
         
-        // Check if we're in a development/artifact environment
-        const isDevelopment = window.location.hostname === 'claude.ai' || 
-                             window.location.hostname.includes('claudeusercontent.com');
+        for (const service of services) {
+          try {
+            const response = await fetch(service.url, { timeout: 3000 });
+            if (response.ok) {
+              const data = await response.json();
+              const ip = data[service.key];
+              if (ip && ip !== 'unknown') return ip;
+            }
+          } catch (serviceError) {
+            console.warn(`IP service ${service.url} failed:`, serviceError);
+            continue;
+          }
+        }
+        return 'unknown';
+      } catch {
+        return 'unknown';
+      }
+    };
+
+    // Enhanced error handling for database operations
+    const handleDatabaseError = (error, operation) => {
+      console.warn(`${operation} failed:`, error);
+      
+      // If RLS policies are blocking, show user-friendly message
+      if (error.message?.includes('policy') || error.message?.includes('permission')) {
+        console.info('Database security policies are working correctly');
+        return false; // Don't show error to user
+      }
+      
+      // For other errors, we might want to inform the user
+      if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        log('Connection issue', 'Database temporarily unavailable');
+        return true; // Show connection error
+      }
+      
+      return false; // Don't show generic errors
+    };
+
+    // Test database connectivity
+    const testDatabaseConnections = async () => {
+      try {
+        log('Testing database connections', 'Starting connectivity test...');
         
-        async function initializeSupabase() {
-            try {
-                if (isDevelopment) {
-                    // Mock Supabase for development/testing
-                    console.log('Running in development mode - using mock Supabase client');
-                    supabase = {
-                        auth: {
-                            signInWithPassword: async (credentials) => {
-                                console.log('Mock login attempt:', credentials.email);
-                                // Simulate successful login for demo
-                                return { 
-                                    data: { user: { email: credentials.email } }, 
-                                    error: null 
-                                };
-                            },
-                            signUp: async (credentials) => {
-                                console.log('Mock signup attempt:', credentials.email);
-                                return { 
-                                    data: { user: { email: credentials.email } }, 
-                                    error: null 
-                                };
-                            },
-                            signOut: async () => {
-                                console.log('Mock signout');
-                                return { error: null };
-                            },
-                            onAuthStateChange: (callback) => {
-                                console.log('Mock auth state listener registered');
-                                // Don't trigger callback in mock mode
-                                return { data: { subscription: { unsubscribe: () => {} } } };
-                            },
-                            mfa: {
-                                listFactors: async () => ({ data: { factors: [] }, error: null }),
-                                enroll: async () => ({ data: null, error: { message: 'MFA not available in demo mode' } }),
-                                deleteFactor: async () => ({ error: { message: 'MFA not available in demo mode' } })
-                            }
-                        },
-                        from: () => ({
-                            select: () => ({
-                                order: () => Promise.resolve({ data: [], error: null })
-                            })
-                        }),
-                        rpc: async (functionName) => {
-                            console.log('Mock RPC call:', functionName);
-                            return { data: 'mock-household-id', error: null };
-                        }
-                    };
-                } else {
-                    // Production: Import actual Supabase client
-                    const module = await import('./supabaseClient.js');
-                    supabase = module.supabase;
-                }
-                
-                console.log('Supabase client initialized successfully');
-                return true;
-            } catch (error) {
-                console.error('Failed to initialize Supabase client:', error);
-                displayError('Application initialization failed. Please refresh the page.');
-                return false;
-            }
-        }
-
-        // SECURITY: Enhanced Rate Limiter with exponential backoff
-        class SecureRateLimiter {
-            constructor(maxAttempts = 5, windowMs = 15 * 60 * 1000) {
-                this.attempts = new Map();
-                this.maxAttempts = maxAttempts;
-                this.windowMs = windowMs;
-                this.backoffMultiplier = 2;
-            }
-            
-            isAllowed(identifier) {
-                const now = Date.now();
-                const userAttempts = this.attempts.get(identifier) || [];
-                const recentAttempts = userAttempts.filter(time => now - time < this.windowMs);
-                
-                if (recentAttempts.length >= this.maxAttempts) {
-                    return false;
-                }
-                
-                this.attempts.set(identifier, [...recentAttempts, now]);
-                return true;
-            }
-            
-            getRemainingTime(identifier) {
-                const userAttempts = this.attempts.get(identifier) || [];
-                if (userAttempts.length === 0) return 0;
-                
-                const oldestAttempt = Math.min(...userAttempts);
-                const backoffTime = this.windowMs * Math.pow(this.backoffMultiplier, Math.max(0, userAttempts.length - this.maxAttempts));
-                const timeRemaining = backoffTime - (Date.now() - oldestAttempt);
-                return Math.max(0, timeRemaining);
-            }
-            
-            reset(identifier) {
-                this.attempts.delete(identifier);
-            }
-        }
-
-        // Wait for DOM to be ready
-        async function initializeApp() {
-            // Initialize Supabase first
-            await initializeSupabase();
-            
-            // Initialize rate limiter
-            const loginLimiter = new SecureRateLimiter(5, 15 * 60 * 1000);
-
-        // SECURITY: Enhanced DOM manipulation utilities
-        const SecureDOM = {
-            // Safe alternative to innerHTML - prevents XSS
-            setTextContent(element, text) {
-                if (element && element.nodeType === Node.ELEMENT_NODE) {
-                    element.textContent = String(text || '').trim();
-                }
-            },
-            
-            // Safe way to create elements with text content
-            createElement(tag, textContent = '', attributes = {}) {
-                const element = document.createElement(tag);
-                if (textContent) {
-                    element.textContent = String(textContent);
-                }
-                Object.entries(attributes).forEach(([key, value]) => {
-                    if (typeof key === 'string' && value !== null && value !== undefined) {
-                        element.setAttribute(key, String(value));
-                    }
-                });
-                return element;
-            },
-            
-            // Safe way to clear and populate container
-            replaceContent(container, ...elements) {
-                if (container && container.nodeType === Node.ELEMENT_NODE) {
-                    container.replaceChildren(...elements.filter(el => el && el.nodeType));
-                }
-            },
-
-            // Safe way to show/hide elements with null checks
-            show(element) {
-                if (element && element.style) {
-                    element.style.display = 'block';
-                }
-            },
-
-            hide(element) {
-                if (element && element.style) {
-                    element.style.display = 'none';
-                }
-            },
-
-            // SECURITY: Safe HTML sanitization for trusted content only
-            sanitizeHTML(html) {
-                const temp = document.createElement('div');
-                temp.textContent = html; // This escapes HTML automatically
-                return temp.innerHTML;
-            }
-        };
-
-        // SECURITY: Enhanced error display with sanitization
-        function displayError(message, duration = 5000) {
-            const errorContainer = document.getElementById('errorMessage');
-            if (!errorContainer) return;
-            
-            // SECURITY: Sanitize and categorize error messages
-            let safeMessage = 'An unexpected error occurred. Please try again.';
-            
-            if (typeof message === 'string') {
-                const msg = message.toLowerCase();
-                if (msg.includes('duplicate') || msg.includes('already registered')) {
-                    safeMessage = 'This email address is already registered. Try signing in instead.';
-                } else if (msg.includes('invalid') || msg.includes('wrong')) {
-                    safeMessage = 'Invalid email or password. Please check your credentials.';
-                } else if (msg.includes('confirm') || msg.includes('verification')) {
-                    safeMessage = 'Please check your email and confirm your account before signing in.';
-                } else if (msg.includes('rate') || msg.includes('attempts') || msg.includes('limit')) {
-                    safeMessage = 'Too many attempts. Please wait before trying again.';
-                } else if (msg.includes('network') || msg.includes('connection')) {
-                    safeMessage = 'Network error. Please check your connection and try again.';
-                } else if (msg.includes('timeout')) {
-                    safeMessage = 'Request timed out. Please try again.';
-                }
-            }
-            
-            SecureDOM.setTextContent(errorContainer, `❌ ${safeMessage}`);
-            SecureDOM.show(errorContainer);
-            
-            // Auto-hide with cleanup
-            setTimeout(() => {
-                SecureDOM.hide(errorContainer);
-                SecureDOM.setTextContent(errorContainer, '');
-            }, duration);
-        }
-
-        function displaySuccess(message, duration = 5000) {
-            const successContainer = document.getElementById('successMessage');
-            if (!successContainer) return;
-            
-            SecureDOM.setTextContent(successContainer, `✅ ${String(message)}`);
-            SecureDOM.show(successContainer);
-            
-            setTimeout(() => {
-                SecureDOM.hide(successContainer);
-                SecureDOM.setTextContent(successContainer, '');
-            }, duration);
-        }
-
-        // SECURITY: Password strength validator
-        function validatePasswordStrength(password) {
-            const checks = {
-                length: password.length >= 12,
-                lowercase: /[a-z]/.test(password),
-                uppercase: /[A-Z]/.test(password),
-                numbers: /\d/.test(password),
-                special: /[^a-zA-Z0-9]/.test(password)
-            };
-            
-            const score = Object.values(checks).filter(Boolean).length;
-            let strength = 'weak';
-            let message = 'Weak password';
-            let className = 'strength-weak';
-            
-            if (score >= 4 && password.length >= 12) {
-                strength = 'strong';
-                message = 'Strong password ✓';
-                className = 'strength-strong';
-            } else if (score >= 3 && password.length >= 10) {
-                strength = 'medium';
-                message = 'Medium strength - consider adding more complexity';
-                className = 'strength-medium';
-            }
-            
-            return { strength, message, className, score };
-        }
-
-        // SECURITY: Enhanced QR code display with validation
-        function displayQRCode(qrCodeDataUrl) {
-            const qrContainer = document.getElementById('qrContainer');
-            const qrDisplay = document.getElementById('qrCodeDisplay');
-            
-            if (!qrCodeDataUrl || typeof qrCodeDataUrl !== 'string') {
-                displayError('Invalid QR code data received.');
-                return;
-            }
-            
-            // SECURITY: Validate data URL format
-            if (!qrCodeDataUrl.startsWith('data:image/')) {
-                displayError('Invalid QR code format.');
-                return;
-            }
-            
-            const img = SecureDOM.createElement('img', '', {
-                'src': qrCodeDataUrl,
-                'alt': 'QR Code for MFA setup',
-                'style': 'max-width: 256px; height: auto; border: 2px solid #e5e7eb; border-radius: 8px;',
-                'loading': 'eager'
-            });
-            
-            // SECURITY: Handle image load errors
-            img.onerror = () => {
-                displayError('Failed to load QR code image.');
-                SecureDOM.hide(qrContainer);
-            };
-            
-            SecureDOM.replaceContent(qrDisplay, img);
-            SecureDOM.show(qrContainer);
-        }
-
-        // SECURITY: Enhanced MFA factors display with proper escaping
-        function displayMFAFactors(factors) {
-            const tableBody = document.getElementById('mfaFactorsBody');
-            const container = document.getElementById('mfaFactorsContainer');
-            
-            if (!tableBody || !container) return;
-            
-            SecureDOM.replaceContent(tableBody);
-            
-            if (!Array.isArray(factors) || factors.length === 0) {
-                const row = SecureDOM.createElement('tr');
-                const cell = SecureDOM.createElement('td', 'No MFA factors configured', { 
-                    'colspan': '4',
-                    'style': 'text-align: center; color: #6c757d; font-style: italic;'
-                });
-                row.appendChild(cell);
-                tableBody.appendChild(row);
-            } else {
-                factors.forEach((factor, index) => {
-                    if (!factor || typeof factor !== 'object') return;
-                    
-                    const row = document.createElement('tr');
-                    
-                    // SECURITY: Escape all user data
-                    const typeCell = SecureDOM.createElement('td', factor.type || 'Unknown');
-                    const statusCell = SecureDOM.createElement('td', factor.status || 'Unknown');
-                    const createdCell = SecureDOM.createElement('td', 
-                        factor.created_at ? new Date(factor.created_at).toLocaleDateString() : 'Unknown'
-                    );
-                    
-                    const actionsCell = document.createElement('td');
-                    const deleteButton = SecureDOM.createElement('button', 'Delete', {
-                        'type': 'button',
-                        'data-factor-id': factor.id || '',
-                        'style': 'background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;'
-                    });
-                    
-                    deleteButton.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        const factorId = e.target.getAttribute('data-factor-id');
-                        if (factorId) {
-                            deleteMFAFactor(factorId);
-                        }
-                    });
-                    
-                    actionsCell.appendChild(deleteButton);
-                    
-                    [typeCell, statusCell, createdCell, actionsCell].forEach(cell => {
-                        row.appendChild(cell);
-                    });
-                    
-                    tableBody.appendChild(row);
-                });
-            }
-            
-            SecureDOM.show(container);
-        }
-
-            // Enhanced login form handler
-            const loginForm = document.getElementById('loginForm');
-            if (loginForm) {
-                loginForm.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    
-                    const email = document.getElementById('email')?.value?.trim() || '';
-                    const password = document.getElementById('password')?.value || '';
-                    
-                    // SECURITY: Enhanced input validation
-                    if (!email || !password) {
-                        displayError('Please enter both email and password.');
-                        return;
-                    }
-                    
-                    // SECURITY: Basic email format validation
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    if (!emailRegex.test(email)) {
-                        displayError('Please enter a valid email address.');
-                        return;
-                    }
-                    
-                    // SECURITY: Rate limiting check
-                    if (!loginLimiter.isAllowed(email)) {
-                        const remainingTime = Math.ceil(loginLimiter.getRemainingTime(email) / 1000 / 60);
-                        displayError(`Account temporarily locked. Try again in ${remainingTime} minutes.`);
-                        SecureDOM.show(document.getElementById('rateLimitNotice'));
-                        return;
-                    }
-                    
-                    const loginButton = document.getElementById('loginButton');
-                    if (!loginButton) return;
-                    
-                    loginButton.disabled = true;
-                    SecureDOM.setTextContent(loginButton, 'Signing in...');
-                    
-                    try {
-                        if (!supabase) {
-                            throw new Error('Authentication service unavailable');
-                        }
-                        
-                        const { data, error } = await supabase.auth.signInWithPassword({
-                            email: email,
-                            password: password
-                        });
-                        
-                        if (error) {
-                            displayError(error.message);
-                            return;
-                        }
-                        
-                        // SECURITY: Reset rate limiter on successful login
-                        loginLimiter.reset(email);
-                        
-                        displaySuccess('Login successful! Welcome back.');
-                        await showDashboard(data.user);
-                        
-                    } catch (error) {
-                        console.error('Login error:', error);
-                        displayError('Authentication failed. Please try again.');
-                    } finally {
-                        loginButton.disabled = false;
-                        SecureDOM.setTextContent(loginButton, 'Sign In');
-                        SecureDOM.hide(document.getElementById('rateLimitNotice'));
-                        
-                        // SECURITY: Clear password field
-                        const passwordField = document.getElementById('password');
-                        if (passwordField) passwordField.value = '';
-                    }
-                });
-            }
-
-        // Enhanced registration form handler
-        document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('regEmail')?.value?.trim() || '';
-            const password = document.getElementById('regPassword')?.value || '';
-            const confirmPassword = document.getElementById('confirmPassword')?.value || '';
-            const captchaCheck = document.getElementById('captchaCheck')?.checked || false;
-            
-            // SECURITY: Enhanced validation
-            if (!email || !password || !confirmPassword) {
-                displayError('Please fill in all fields.');
-                return;
-            }
-            
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                displayError('Please enter a valid email address.');
-                return;
-            }
-            
-            if (password !== confirmPassword) {
-                displayError('Passwords do not match.');
-                return;
-            }
-            
-            const passwordCheck = validatePasswordStrength(password);
-            if (passwordCheck.score < 3) {
-                displayError('Password is too weak. Please create a stronger password.');
-                return;
-            }
-            
-            if (!captchaCheck) {
-                displayError('Please complete the security verification.');
-                return;
-            }
-            
-            const registerButton = document.getElementById('registerButton');
-            if (!registerButton) return;
-            
-            registerButton.disabled = true;
-            SecureDOM.setTextContent(registerButton, 'Creating account...');
-            
-            try {
-                if (!supabase) {
-                    throw new Error('Authentication service unavailable');
-                }
-                
-                const { data, error } = await supabase.auth.signUp({
-                    email: email,
-                    password: password,
-                    options: {
-                        emailRedirectTo: `${window.location.origin}/confirm`,
-                        data: {
-                            timestamp: new Date().toISOString()
-                        }
-                    }
-                });
-                
-                if (error) {
-                    displayError(error.message);
-                    return;
-                }
-                
-                displaySuccess('Account created! Please check your email for the confirmation link.');
-                
-                // Clear form on success
-                document.getElementById('registerForm')?.reset();
-                document.getElementById('captchaCheck').checked = false;
-                
-            } catch (error) {
-                console.error('Registration error:', error);
-                displayError('Registration failed. Please try again.');
-            } finally {
-                registerButton.disabled = false;
-                SecureDOM.setTextContent(registerButton, 'Create Account');
-                
-                // SECURITY: Clear sensitive fields
-                ['regPassword', 'confirmPassword'].forEach(id => {
-                    const field = document.getElementById(id);
-                    if (field) field.value = '';
-                });
-            }
-        });
-
-        // Password strength indicator
-        document.getElementById('regPassword')?.addEventListener('input', (e) => {
-            const password = e.target.value;
-            const strengthDisplay = document.getElementById('passwordStrength');
-            
-            if (password && strengthDisplay) {
-                const result = validatePasswordStrength(password);
-                strengthDisplay.className = `password-strength ${result.className}`;
-                SecureDOM.setTextContent(strengthDisplay, result.message);
-            } else if (strengthDisplay) {
-                SecureDOM.setTextContent(strengthDisplay, '');
-            }
-        });
-
-        // Navigation between forms
-        document.getElementById('showRegisterBtn')?.addEventListener('click', () => {
-            SecureDOM.hide(document.getElementById('loginSection'));
-            SecureDOM.show(document.getElementById('registerSection'));
-        });
-
-        document.getElementById('showLoginBtn')?.addEventListener('click', () => {
-            SecureDOM.hide(document.getElementById('registerSection'));
-            SecureDOM.show(document.getElementById('loginSection'));
-            // Clear registration form
-            document.getElementById('registerForm')?.reset();
-        });
-
-            // Dashboard functions
-            async function showDashboard(user) {
-                SecureDOM.hide(document.getElementById('loginSection'));
-                SecureDOM.hide(document.getElementById('registerSection'));
-                SecureDOM.show(document.getElementById('dashboardSection'));
-                
-                // Load dashboard data
-                await Promise.allSettled([
-                    loadHouseholdInfo(),
-                    loadAccounts(),
-                    loadMFAFactors()
-                ]);
-            }
-
-        async function loadHouseholdInfo() {
-            try {
-                if (!supabase) return;
-                
-                const { data, error } = await supabase.rpc('get_user_household_id');
-                
-                const householdInfo = document.getElementById('householdInfo');
-                if (!error && data && householdInfo) {
-                    const infoElement = SecureDOM.createElement('p', `Household ID: ${String(data).substring(0, 8)}...`);
-                    SecureDOM.replaceContent(householdInfo, infoElement);
-                } else if (householdInfo) {
-                    SecureDOM.setTextContent(householdInfo, 'Household information unavailable');
-                }
-            } catch (error) {
-                console.error('Error loading household info:', error);
-            }
-        }
-
-        async function loadAccounts() {
-            try {
-                if (!supabase) return;
-                
-                const { data, error } = await supabase
-                    .from('accounts')
-                    .select('account_id, account_name, account_type')
-                    .order('account_name');
-                
-                const accountsList = document.getElementById('accountsList');
-                if (!accountsList) return;
-                
-                if (!error && Array.isArray(data) && data.length > 0) {
-                    const fragment = document.createDocumentFragment();
-                    
-                    data.forEach(account => {
-                        if (account && typeof account === 'object') {
-                            const item = SecureDOM.createElement('div', 
-                                `${account.account_name || 'Unknown'} (${account.account_type || 'Unknown'})`,
-                                { 'class': 'account-item' }
-                            );
-                            fragment.appendChild(item);
-                        }
-                    });
-                    
-                    SecureDOM.replaceContent(accountsList, fragment);
-                } else {
-                    SecureDOM.setTextContent(accountsList, 'No accounts found');
-                }
-            } catch (error) {
-                console.error('Error loading accounts:', error);
-                const accountsList = document.getElementById('accountsList');
-                if (accountsList) {
-                    SecureDOM.setTextContent(accountsList, 'Error loading accounts');
-                }
-            }
-        }
-
-        // MFA factor deletion with confirmation
-        async function deleteMFAFactor(factorId) {
-            if (!factorId || typeof factorId !== 'string') return;
-            
-            if (!confirm('Are you sure you want to delete this MFA factor? This will reduce your account security.')) {
-                return;
-            }
-            
-            try {
-                if (!supabase) {
-                    displayError('Authentication service unavailable');
-                    return;
-                }
-                
-                const { error } = await supabase.auth.mfa.deleteFactor({ id: factorId });
-                
-                if (error) {
-                    displayError('Failed to delete MFA factor.');
-                    return;
-                }
-                
-                displaySuccess('MFA factor deleted successfully.');
-                await loadMFAFactors();
-                
-            } catch (error) {
-                console.error('MFA deletion error:', error);
-                displayError('Network error. Please try again.');
-            }
-        }
-
-        // Load MFA factors
-        async function loadMFAFactors() {
-            try {
-                if (!supabase) return;
-                
-                const { data, error } = await supabase.auth.mfa.listFactors();
-                
-                if (error) {
-                    console.error('MFA factors error:', error);
-                    return;
-                }
-                
-                displayMFAFactors(data?.factors || []);
-                
-            } catch (error) {
-                console.error('MFA factors network error:', error);
-            }
-        }
-
-        // Setup MFA button handler
-        document.getElementById('setupMfaButton')?.addEventListener('click', async () => {
-            try {
-                if (!supabase) {
-                    displayError('Authentication service unavailable');
-                    return;
-                }
-                
-                const { data, error } = await supabase.auth.mfa.enroll({
-                    factorType: 'totp'
-                });
-                
-                if (error) {
-                    displayError('Failed to setup MFA.');
-                    return;
-                }
-                
-                if (data?.totp?.qr_code) {
-                    displayQRCode(data.totp.qr_code);
-                }
-                
-            } catch (error) {
-                console.error('MFA setup error:', error);
-                displayError('MFA setup failed. Please try again.');
-            }
-        });
-
-        // Logout handler with cleanup
-        document.getElementById('logoutButton')?.addEventListener('click', async () => {
-            try {
-                if (supabase) {
-                    await supabase.auth.signOut();
-                }
-                
-                // Clear UI
-                SecureDOM.hide(document.getElementById('dashboardSection'));
-                SecureDOM.hide(document.getElementById('qrContainer'));
-                SecureDOM.hide(document.getElementById('mfaFactorsContainer'));
-                SecureDOM.show(document.getElementById('loginSection'));
-                
-                // Clear form data
-                ['loginForm', 'registerForm'].forEach(formId => {
-                    const form = document.getElementById(formId);
-                    if (form) form.reset();
-                });
-                
-                displaySuccess('Signed out successfully.');
-                
-            } catch (error) {
-                console.error('Logout error:', error);
-                displayError('Error during logout.');
-            }
-        });
-
-        // SECURITY: Clear sensitive form data on page unload
-        window.addEventListener('beforeunload', () => {
-            ['password', 'regPassword', 'confirmPassword'].forEach(id => {
-                const field = document.getElementById(id);
-                if (field) field.value = '';
-            });
-        });
-
-        // SECURITY: Detect and handle potential XSS attempts
-        window.addEventListener('error', (e) => {
-            console.error('JavaScript error detected:', e.error);
-            if (e.error?.message?.includes('script')) {
-                displayError('Security violation detected. Please refresh the page.');
-            }
-        });
-
-        }
-
-        // Initialize the entire application when DOM is loaded
-        initializeApp();
+        // Test basic connection
+        const { data: authTest, error: authError } = await supabase.auth.getSession();
+        if (authError) throw new Error(`Auth test failed: ${authError.message}`);
         
-        } // End of initializeApp function
+        // Test table access (these will return empty if RLS is working)
+        const { error: loginError } = await supabase.from('user_login_history').select('count').limit(1);
+        const { error: activityError } = await supabase.from('user_activity_log').select('count').limit(1);
+        const { error: failedError } = await supabase.from('failed_login_attempts').select('count').limit(1);
         
-        // Start the application when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeApp);
+        if (loginError || activityError || failedError) {
+          log('Database table access', 'RLS policies active (expected)');
         } else {
-            initializeApp();
+          log('Database connectivity', 'All tables accessible');
         }
+        
+        log('Database test', 'Connection successful');
+        return true;
+      } catch (error) {
+        log('Database test failed', error.message);
+        console.error('Database connectivity issue:', error);
+        return false;
+      }
+    };
 
-        // SECURITY: Global error handling
-        window.addEventListener('error', (e) => {
-            console.error('JavaScript error detected:', e.error);
+    // Activity tracking with improved error handling
+    const trackActivity = async (activityType, details = '') => {
+      lastActivityTime = Date.now();
+      
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && currentLoginId) {
+          const { error } = await supabase.from('user_activity_log').insert({
+            user_id: user.id,
+            login_id: currentLoginId,
+            activity_type: activityType,
+            page_url: window.location.href,
+            action_description: details
+          });
+          
+          if (error) {
+            const shouldShowError = handleDatabaseError(error, 'Activity tracking');
+            if (shouldShowError) {
+              log('Activity tracking issue', 'Temporary logging issue');
+            }
+          }
+        }
+      } catch (error) {
+        handleDatabaseError(error, 'Activity tracking');
+      }
+    };
+
+    // Session timeout management
+    const startSessionTimer = () => {
+      clearSessionTimers();
+      
+      // Warning timer (25 minutes)
+      warningTimer = setTimeout(() => {
+        showTimeoutWarning();
+      }, WARNING_TIME_MS);
+      
+      // Session timeout (30 minutes)
+      sessionTimer = setTimeout(() => {
+        handleSessionTimeout();
+      }, SESSION_TIMEOUT_MS);
+      
+      updateSessionDisplay();
+    };
+
+    const clearSessionTimers = () => {
+      if (warningTimer) clearTimeout(warningTimer);
+      if (sessionTimer) clearTimeout(sessionTimer);
+      timeoutWarningEl.classList.add('hide');
+    };
+
+    const showTimeoutWarning = () => {
+      timeoutWarningEl.classList.remove('hide');
+      startCountdown();
+    };
+
+    const startCountdown = () => {
+      let timeLeft = (SESSION_TIMEOUT_MS - WARNING_TIME_MS) / 1000; // 5 minutes in seconds
+      
+      const countdown = setInterval(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        timeoutCountdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        if (timeLeft <= 0) {
+          clearInterval(countdown);
+          handleSessionTimeout();
+        }
+        timeLeft--;
+      }, 1000);
+    };
+
+    const handleSessionTimeout = async () => {
+      clearSessionTimers();
+      await logLogout('timeout');
+      await supabase.auth.signOut();
+      setSignedOut();
+      alert('Your session has expired due to inactivity. Please sign in again.');
+    };
+
+    const extendSession = () => {
+      trackActivity('session_extended', 'User manually extended session');
+      startSessionTimer();
+      timeoutWarningEl.classList.add('hide');
+    };
+
+    const updateSessionDisplay = () => {
+      if (sessionTimer) {
+        sessionTimerEl.textContent = 'Session active';
+        sessionTimerEl.classList.remove('hide');
+      } else {
+        sessionTimerEl.classList.add('hide');
+      }
+    };
+
+    // Login history tracking with improved error handling
+    const logSuccessfulLogin = async (method = 'email_password_totp') => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const clientIP = await getClientIP();
+          const { data, error } = await supabase.from('user_login_history').insert({
+            user_id: user.id,
+            login_method: method,
+            ip_address: clientIP,
+            user_agent: navigator.userAgent
+          }).select('login_id').single();
+          
+          if (error) {
+            const shouldShowError = handleDatabaseError(error, 'Login history tracking');
+            if (shouldShowError) {
+              log('Login tracking issue', 'Unable to record login details');
+            }
+          } else if (data) {
+            currentLoginId = data.login_id;
+            trackActivity('login_successful', `Login method: ${method}`);
+            log('Login tracked', `Login ID: ${currentLoginId}`);
+          }
+        }
+      } catch (error) {
+        handleDatabaseError(error, 'Login history tracking');
+      }
+    };
+
+    const logFailedLogin = async (email, reason) => {
+      try {
+        const clientIP = await getClientIP();
+        const { error } = await supabase.from('failed_login_attempts').insert({
+          email: email,
+          failure_reason: reason,
+          ip_address: clientIP,
+          user_agent: navigator.userAgent
         });
+        
+        if (error) {
+          handleDatabaseError(error, 'Failed login tracking');
+        }
+      } catch (error) {
+        handleDatabaseError(error, 'Failed login tracking');
+      }
+    };
 
-        console.log('🔐 Secure Budget Tracker loading...');
-    </script>
+    const logLogout = async (reason = 'manual') => {
+      try {
+        if (currentLoginId) {
+          const { error } = await supabase.from('user_login_history')
+            .update({
+              logout_timestamp: new Date().toISOString(),
+              logout_reason: reason
+            })
+            .eq('login_id', currentLoginId);
+          
+          if (error) {
+            handleDatabaseError(error, 'Logout tracking');
+          } else {
+            trackActivity('logout', `Logout reason: ${reason}`);
+            log('Logout tracked', `Reason: ${reason}`);
+          }
+          currentLoginId = null;
+        }
+      } catch (error) {
+        handleDatabaseError(error, 'Logout tracking');
+      }
+    };
+
+    const gateApp = (blocked) => {
+      if (blocked) appGated.classList.add('gate');
+      else appGated.classList.remove('gate');
+    };
+
+    const setSignedIn = (email) => {
+      statusEl.textContent = `Signed in as: ${email}`;
+      statusEl.classList.remove('err'); statusEl.classList.add('ok');
+      signoutBtn.classList.remove('hide');
+      signupCard.classList.add('hide');
+      signinCard.classList.add('hide');
+      mfaCard.classList.remove('hide');
+      startSessionTimer();
+    };
+
+    const setSignedOut = () => {
+      statusEl.textContent = 'Not signed in.';
+      statusEl.classList.remove('ok'); statusEl.classList.add('err');
+      signoutBtn.classList.add('hide');
+      signupCard.classList.remove('hide');
+      signinCard.classList.remove('hide');
+      mfaCard.classList.add('hide');
+      mfaLoginCard.classList.add('hide');
+      clearSessionTimers();
+      gateApp(true);
+      
+      // Clear sensitive session data but preserve email if user chose to remember
+      const currentEmail = document.getElementById('si-email').value;
+      const rememberEmail = rememberEmailCheckbox.checked;
+      
+      if (!rememberEmail && currentEmail) {
+        localStorage.removeItem('budget_tracker_email');
+        document.getElementById('si-email').value = '';
+        rememberEmailCheckbox.checked = false;
+      }
+      
+      // Clear any cached session data
+      currentLoginId = null;
+      pendingMfa = { factorId: null, challengeId: null };
+    };
+
+    // ===== Redirect handling (email confirm / recovery)
+    async function handleRedirect() {
+      const href = location.href;
+      log('URL on load', href);
+      if (href.includes('code=') || href.includes('access_token=')) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(href);
+        if (error) log('exchangeCodeForSession error', error.message);
+        else log('exchangeCodeForSession data', data);
+        history.replaceState({}, document.title, '/budget-tracker/');
+      }
+    }
+    await handleRedirect();
+
+    // ===== Session reflection
+    async function refreshSession() {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      log('getSession error', error ?? 'none');
+      log('getSession session', session ?? null);
+      if (session?.user?.email) {
+        setSignedIn(session.user.email);
+        trackActivity('session_refreshed', 'Page load with existing session');
+        await enforceMfa();
+      } else {
+        setSignedOut();
+      }
+    }
+    
+    // Initialize app when page loads
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Load saved email preference
+      loadSavedEmail();
+      
+      // Test database connectivity
+      const dbConnected = await testDatabaseConnections();
+      if (!dbConnected) {
+        log('Warning', 'Database connectivity issues detected - some features may be limited');
+      }
+    });
+    
+    await refreshSession();
+
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      log('onAuthStateChange', { event, user: session?.user ?? null });
+      if (session?.user?.email) {
+        setSignedIn(session.user.email);
+        await enforceMfa();
+      } else {
+        setSignedOut();
+      }
+      if (event === 'PASSWORD_RECOVERY') {
+        signinCard.classList.add('hide');
+        signupCard.classList.add('hide');
+        forgotCard.classList.add('hide');
+        recoveryCard.classList.remove('hide');
+      }
+    });
+
+    // ===== Enforce MFA (hard requirement)
+    async function enforceMfa() {
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      log('listFactors', error ?? data);
+
+      const totp = (data?.totp ?? []).filter(f => f.status === 'verified');
+      if (totp.length > 0) {
+        mfaStatus.textContent = `MFA enabled (${totp.length} TOTP factor${totp.length > 1 ? 's' : ''})`;
+        mfaEnrollBlock.classList.add('hide');
+        mfaAlreadyBlock.classList.remove('hide');
+        mfaFactorsDiv.textContent = totp.map(f => `• TOTP (id: ${f.id})`).join('\n') || 'TOTP enrolled.';
+        gateApp(false); // UNLOCK APP
+      } else {
+        // No verified factor → lock app and push user through enrollment
+        gateApp(true);
+        mfaAlreadyBlock.classList.add('hide');
+        mfaEnrollBlock.classList.remove('hide');
+        mfaStatus.textContent = 'MFA not enabled. You must complete setup to continue.';
+        mfaStatus.classList.add('err');
+        mfaCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (REQUIRE_MFA && mfaEnrollUI.classList.contains('hide')) {
+          await startEnroll(); // auto-generate QR + secret
+        }
+      }
+    }
+
+    // ===== Start TOTP enroll
+    async function startEnroll() {
+      mfaEnrollMsg.textContent = 'Generating…';
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+      if (error) { mfaEnrollMsg.textContent = 'Enroll error: ' + error.message; return; }
+      log('mfa.enroll', data);
+
+      enrollFactorId = data.id;
+      mfaQR.src = data.totp.qr_code;           // PNG data URL
+      mfaSecret.textContent = data.totp.secret; // Base32
+      const user = (await supabase.auth.getUser()).data?.user;
+      const issuer = encodeURIComponent('Budget Tracker');
+      const account = encodeURIComponent(user?.email || 'user');
+      const otpauth = data.totp.uri || `otpauth://totp/${issuer}:${account}?secret=${data.totp.secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30`;
+      mfaOtpAuth.href = otpauth;
+
+      mfaEnrollUI.classList.remove('hide');
+      mfaEnrollMsg.textContent = 'Scan QR or tap link / enter setup key, then enter the 6-digit code.';
+    }
+    document.getElementById('mfa-start').addEventListener('click', startEnroll);
+
+    // ===== Verify and activate factor
+    mfaVerifyBtn.addEventListener('click', async () => {
+      mfaEnrollMsg.textContent = 'Verifying…';
+      const code = mfaCode.value.trim();
+      if (!enrollFactorId) { mfaEnrollMsg.textContent = 'No enrollment in progress.'; return; }
+
+      const ch = await supabase.auth.mfa.challenge({ factorId: enrollFactorId });
+      if (ch.error) { mfaEnrollMsg.textContent = 'Challenge error: ' + ch.error.message; return; }
+
+      const vr = await supabase.auth.mfa.verify({
+        factorId: enrollFactorId,
+        code,
+        challengeId: ch.data.id,
+      });
+      if (vr.error) {
+        mfaEnrollMsg.textContent = 'Verify error: ' + vr.error.message;
+      } else {
+        mfaEnrollMsg.textContent = 'MFA enabled!';
+        mfaEnrollUI.classList.add('hide');
+        mfaCode.value = '';
+        enrollFactorId = null;
+        await enforceMfa(); // re-check and unlock app
+      }
+    });
+
+    // ===== Sign up
+    signupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      signupMsg.textContent = '...';
+      const email = document.getElementById('su-email').value.trim();
+      const password = document.getElementById('su-password').value;
+
+      const { data, error } = await supabase.auth.signUp({
+        email, password,
+        options: { emailRedirectTo: 'https://charles85298.github.io/budget-tracker/' }
+      });
+      if (error) signupMsg.textContent = 'Error: ' + error.message;
+      else {
+        signupMsg.textContent = data?.user?.email_confirmed_at
+          ? 'Account created.'
+          : 'Check your email to confirm your account.';
+        log('signUp', data);
+        await refreshSession();
+      }
+    });
+
+    // ===== Sign in (handles MFA-required case)
+    signinForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      signinMsg.textContent = '...';
+      const email = document.getElementById('si-email').value.trim();
+      const password = document.getElementById('si-password').value;
+      const rememberEmail = rememberEmailCheckbox.checked;
+
+      // Save email preference
+      saveEmail(email, rememberEmail);
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('mfa')) {
+          signinMsg.textContent = 'MFA required: enter your 6-digit code.';
+          const lf = await supabase.auth.mfa.listFactors();
+          log('listFactors (after mfa_required)', lf);
+          const firstVerified = (lf?.data?.totp ?? []).find(f => f.status === 'verified');
+          if (!firstVerified) { 
+            signinMsg.textContent = 'MFA required but no verified TOTP factor found.';
+            await logFailedLogin(email, 'no_mfa_factor');
+            return; 
+          }
+          const ch = await supabase.auth.mfa.challenge({ factorId: firstVerified.id });
+          if (ch.error) { 
+            signinMsg.textContent = 'Error starting MFA challenge: ' + ch.error.message;
+            await logFailedLogin(email, 'mfa_challenge_failed');
+            return; 
+          }
+          pendingMfa = { factorId: firstVerified.id, challengeId: ch.data.id };
+          mfaLoginCard.classList.remove('hide');
+        } else {
+          signinMsg.textContent = 'Error: ' + error.message;
+          await logFailedLogin(email, 'invalid_credentials');
+        }
+      } else {
+        signinMsg.textContent = 'Signed in.';
+        log('signInWithPassword', data);
+        await logSuccessfulLogin('email_password_totp');
+        await refreshSession();
+      }
+    });
+
+    // ===== Verify MFA during login
+    mfaLoginVerifyBtn.addEventListener('click', async () => {
+      mfaLoginMsg.textContent = 'Verifying…';
+      const code = mfaLoginCode.value.trim();
+      if (!pendingMfa.factorId || !pendingMfa.challengeId) {
+        mfaLoginMsg.textContent = 'No MFA challenge in progress.';
+        return;
+      }
+      const vr = await supabase.auth.mfa.verify({
+        factorId: pendingMfa.factorId,
+        code,
+        challengeId: pendingMfa.challengeId,
+      });
+      if (vr.error) {
+        mfaLoginMsg.textContent = 'MFA verify error: ' + vr.error.message;
+        const email = document.getElementById('si-email').value.trim();
+        await logFailedLogin(email, 'invalid_totp');
+      } else {
+        mfaLoginMsg.textContent = 'MFA verified. Signed in.';
+        mfaLoginCard.classList.add('hide');
+        await logSuccessfulLogin('email_password_totp');
+        await refreshSession();
+      }
+    });
+
+    // ===== Password reset
+    forgotBtn.addEventListener('click', () => forgotCard.classList.toggle('hide'));
+    forgotForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      forgotMsg.textContent = '...';
+      const email = document.getElementById('fp-email').value.trim();
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://charles85298.github.io/budget-tracker/'
+      });
+      if (error) forgotMsg.textContent = 'Error: ' + error.message;
+      else { forgotMsg.textContent = 'Reset email sent. Check your inbox.'; log('resetPasswordForEmail', data); }
+    });
+    recoveryForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      recoveryMsg.textContent = 'Updating password...';
+      const newPassword = document.getElementById('rp-password').value;
+      
+      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+      
+      if (error) {
+        recoveryMsg.textContent = 'Error: ' + error.message;
+        log('Password update error', error);
+      } else {
+        recoveryMsg.textContent = 'Password updated successfully! You are now signed in.';
+        log('Password updated', data);
+        
+        // Hide recovery form and show normal UI
+        recoveryCard.classList.add('hide');
+        await refreshSession();
+      }
+    });
+
+    // ===== Sign out
+    signoutBtn.addEventListener('click', async () => {
+      await logLogout('manual');
+      const { error } = await supabase.auth.signOut();
+      if (error) log('signOut error', error.message);
+      setSignedOut();
+    });
+
+    // ===== Paychecks viewer (inside gated area)
+    readBtn?.addEventListener('click', async () => {
+      outEl.textContent = 'Loading…';
+      trackActivity('data_access', 'Loading paychecks');
+      const { data, error } = await supabase
+        .from('paychecks')
+        .select('paycheck_id, employer, pay_date, net_amount')
+        .order('pay_date', { ascending: false })
+        .limit(50);
+      outEl.textContent = error ? `Error: ${error.message}` : JSON.stringify(data, null, 2);
+      log('read paychecks', error ?? data);
+    });
+
+    // ===== Activity tracking event listeners (improved)
+    let activityThrottle = null;
+    const throttledTrackActivity = (type, details) => {
+      if (activityThrottle) return; // Prevent excessive logging
+      
+      trackActivity(type, details);
+      activityThrottle = setTimeout(() => {
+        activityThrottle = null;
+      }, 1000); // Only log once per second max
+    };
+
+    document.addEventListener('click', (e) => {
+      const element = e.target.tagName || 'unknown';
+      throttledTrackActivity('click', `Element: ${element}`);
+    });
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.target.type === 'password') return; // Don't log password field activity
+      throttledTrackActivity('keydown', 'User interaction');
+    });
+    
+    // Track form submissions with better details
+    document.querySelectorAll('form').forEach(form => {
+      form.addEventListener('submit', (e) => {
+        const formId = e.target.id || 'unknown-form';
+        trackActivity('form_submit', `Form: ${formId}`);
+      });
+    });
+
+    // Track page visibility changes (user switching tabs, etc.)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        trackActivity('page_hidden', 'User switched away from tab');
+      } else {
+        trackActivity('page_visible', 'User returned to tab');
+      }
+    });
+
+    // Enhanced page unload tracking
+    window.addEventListener('beforeunload', async (e) => {
+      if (currentLoginId) {
+        // Use sendBeacon for reliable tracking even during page unload
+        const activityData = {
+          user_id: (await supabase.auth.getUser()).data?.user?.id,
+          login_id: currentLoginId,
+          activity_type: 'page_unload',
+          page_url: window.location.href,
+          action_description: 'User navigating away or closing page'
+        };
+        
+        // Attempt to send beacon (more reliable than fetch during unload)
+        if (navigator.sendBeacon) {
+          const blob = new Blob([JSON.stringify(activityData)], { type: 'application/json' });
+          navigator.sendBeacon('/api/track-activity', blob);
+        }
+        
+        // Also try direct database call as backup
+        try {
+          await supabase.from('user_activity_log').insert(activityData);
+        } catch (error) {
+          // Ignore errors during page unload
+        }
+      }
+    });
+
+    // ===== Session extension
+    extendSessionBtn.addEventListener('click', extendSession);
+  </script>
 </body>
 </html>
