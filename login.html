@@ -1,12 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Budget‑Tracker • Log in</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Budget Tracker</title>
   <style>
     :root{
       --bg-desktop:url('images/flag_locked_black.png');
@@ -14,15 +11,13 @@
       --brand:#3b82f6;
       --text:#e5e7eb;
       --muted:#9ca3af;
-      --card:#0b0f14cc;
-      --input:#ffffff;
+      --input-bg:#ffffff;
+      --input-text:#111827;
       --radius:16px;
-      --shadow:0 8px 28px rgba(0,0,0,.35);
     }
-    *{box-sizing:border-box}
-    html,body{height:100%}
+    *{box-sizing:border-box;}
+    html,body{height:100%; margin:0;}
     body{
-      margin:0;
       font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
       color:var(--text);
       background-color:#0b0f14;
@@ -44,45 +39,48 @@
       place-items:center;
       padding:clamp(16px,3vw,32px);
     }
-    .card{
-      background: transparent;   /* no background */
-      border: none;              /* remove border */
-      box-shadow: none;          /* remove shadow */
-      padding: 24px;             /* keep padding so spacing stays nice */
+
+    /* remove card container */
+    .card,
+    .card::before,
+    .card::after{
+      all: unset !important;
+      display: contents !important;
     }
 
     .logo-wrap{
       display:grid; place-items:center;
-      margin-top:-12px; margin-bottom:8px;
+      margin-bottom:12px;
     }
     .coin{
-      width:160px; height:auto;
+      width:140px; height:auto;
       filter: drop-shadow(0 10px 24px rgba(0,0,0,.45));
       user-select:none;
     }
+
     h1{
       text-align:center;
       margin:4px 0 18px 0;
       font-weight:700;
-      letter-spacing:.2px;
     }
+
     label{display:block; font-size:14px; color:var(--muted); margin:12px 0 6px}
     .input{
       width:100%;
-      border:1px solid #e5e7eb;
-      background:var(--input);
-      color:#111827;
+      border:1px solid #d1d5db;
+      background:var(--input-bg);
+      color:var(--input-text);
       font-size:16px;
       padding:14px 14px;
       border-radius:var(--radius);
       outline:none;
-      box-shadow: 0 2px 0 rgba(0,0,0,.02) inset;
     }
     .input:focus{
       border-color:var(--brand);
       box-shadow:0 0 0 4px rgba(59,130,246,.18);
     }
-    .row{display:flex; gap:10px; align-items:center; justify-content:space-between; margin-top:8px}
+
+    .row{display:flex; justify-content:space-between; align-items:center; margin-top:8px}
     .link{
       color:var(--brand);
       text-decoration:none;
@@ -90,6 +88,7 @@
       font-size:14px;
     }
     .link:hover{ text-decoration:underline }
+
     .btn{
       width:100%;
       border:0;
@@ -103,7 +102,7 @@
       cursor:pointer;
       margin:14px 0 6px;
     }
-    .btn:active{ transform:translateY(1px) }
+
     .footer{
       text-align:center;
       color:var(--muted);
@@ -112,54 +111,41 @@
     }
     .footer a{ color:var(--brand); text-decoration:none; }
     .footer a:hover{ text-decoration:underline }
+
     @media (max-width: 768px){
       body{
         background-image: var(--bg-mobile), var(--bg-desktop);
         background-size: cover;
         background-position:center;
       }
-      .card{ width:min(460px, 94vw); padding:20px }
-      .coin{ width:140px }
+      .coin{ width:120px; }
     }
-    @media (min-height: 1000px){
-      .page{ padding-top:40px; }
-      .coin{ width:180px }
-    }
-    /* HARD OVERRIDE: remove card panel entirely */
-/* REMOVE THE CARD COMPLETELY */
-.card,
-.card::before,
-.card::after{
-  all: unset !important;        /* wipes prior styles */
-  display: contents !important; /* no box, only children render */
-}
-
-
   </style>
 </head>
 <body>
-  <main class="page">
-    <section class="card" aria-label="Login">
+  <div class="page">
+    <div class="card">
       <div class="logo-wrap">
-        <img class="coin" src="images/mobile_login_icon.png" alt="Financial Freedom coin logo" />
+        <img src="images/mobile_login_icon.png" alt="Financial Freedom coin logo" class="coin">
       </div>
       <h1>Log in</h1>
-      <form action="#" method="post" novalidate>
+      <form>
         <label for="username">Username</label>
-        <input id="username" class="input" type="text" name="username" placeholder="you@example.com" autocomplete="username" />
+        <input id="username" type="text" placeholder="you@example.com" class="input">
+
         <label for="password">Password</label>
-        <input id="password" class="input" type="password" name="password" placeholder="••••••••" autocomplete="current-password" />
+        <input id="password" type="password" placeholder="••••••••" class="input">
+
         <div class="row">
-          <a class="link" href="#">Reset password</a>
-          <span></span>
+          <a href="#" class="link">Reset password</a>
         </div>
-        <button class="btn" type="button" aria-label="Log in">Log in</button>
+
+        <button type="submit" class="btn">Log in</button>
       </form>
       <div class="footer">
-        Don’t have an account?
-        <a href="#">Sign up</a>
+        Don’t have an account? <a href="#">Sign up</a>
       </div>
-    </section>
-  </main>
+    </div>
+  </div>
 </body>
 </html>
