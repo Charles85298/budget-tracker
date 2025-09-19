@@ -126,15 +126,14 @@
       .coin{ width:180px }
     }
     /* HARD OVERRIDE: remove card panel entirely */
-.card{
-  background: transparent !important; /* kill background var */
-  border: none !important;            /* remove border */
-  box-shadow: none !important;        /* remove glow/shadow outline */
-  backdrop-filter: none !important;   /* remove frosted blur pane */
-  -webkit-backdrop-filter: none !important;
-  padding: 24px;                      /* keep spacing */
-  border-radius: 0;                   /* optional: remove rounded corners */
+/* REMOVE THE CARD COMPLETELY */
+.card,
+.card::before,
+.card::after{
+  all: unset !important;        /* wipes prior styles */
+  display: contents !important; /* no box, only children render */
 }
+
 
   </style>
 </head>
