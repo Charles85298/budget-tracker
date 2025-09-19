@@ -1,151 +1,259 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Budget Tracker</title>
-  <style>
-    :root{
-      --bg-desktop:url('images/flag_locked_black.png');
-      --bg-mobile:url('images/flag_locked_black_mobile_cropped.png');
-      --brand:#3b82f6;
-      --text:#e5e7eb;
-      --muted:#9ca3af;
-      --input-bg:#ffffff;
-      --input-text:#111827;
-      --radius:16px;
-    }
-    *{box-sizing:border-box;}
-    html,body{height:100%; margin:0;}
-    body{
-      font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
-      color:var(--text);
-      background-color:#0b0f14;
-      background-image: var(--bg-desktop);
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
-    }
-    body::before{
-      content:"";
-      position:fixed; inset:0;
-      //background: radial-gradient(ellipse at 50% -10%, rgba(0,0,0,.15), transparent 45%),
-        //          linear-gradient(to bottom, rgba(0,0,0,.35), rgba(0,0,0,.75));
-      pointer-events:none;
-    }
-    .page{
-      min-height:100%;
-      display:grid;
-      place-items:center;
-      padding:clamp(16px,3vw,32px);
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Freedom - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    /* remove card container */
-    .card,
-    .card::before,
-    .card::after{
-      all: unset !important;
-      display: contents !important;
-    }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #1a1a2e;
+            background-image: url('/images/background.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
 
-    .logo-wrap{
-      display:grid; place-items:center;
-      margin-bottom:12px;
-    }
-    .coin{
-      width:140px; height:auto;
-      filter: drop-shadow(0 10px 24px rgba(0,0,0,.45));
-      user-select:none;
-    }
+        .login-container {
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+        }
 
-    h1{
-      text-align:center;
-      margin:4px 0 18px 0;
-      font-weight:700;
-    }
+        .logo-container {
+            margin-bottom: 40px;
+        }
 
-    label{display:block; font-size:14px; color:var(--muted); margin:12px 0 6px}
-    .input{
-      width:100%;
-      border:1px solid #d1d5db;
-      background:var(--input-bg);
-      color:var(--input-text);
-      font-size:16px;
-      padding:14px 14px;
-      border-radius:var(--radius);
-      outline:none;
-    }
-    .input:focus{
-      border-color:var(--brand);
-      box-shadow:0 0 0 4px rgba(59,130,246,.18);
-    }
+        .coin-logo {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            background-image: url('/images/coin-logo.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
 
-    .row{display:flex; justify-content:space-between; align-items:center; margin-top:8px}
-    .link{
-      color:var(--brand);
-      text-decoration:none;
-      font-weight:500;
-      font-size:14px;
-    }
-    .link:hover{ text-decoration:underline }
+        .login-title {
+            color: white;
+            font-size: 24px;
+            font-weight: 400;
+            margin-bottom: 40px;
+        }
 
-    .btn{
-      width:100%;
-      border:0;
-      background:var(--brand);
-      color:white;
-      font-weight:700;
-      font-size:18px;
-      padding:14px 18px;
-      border-radius:999px;
-      box-shadow:0 10px 22px rgba(59,130,246,.35);
-      cursor:pointer;
-      margin:14px 0 6px;
-    }
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
 
-    .footer{
-      text-align:center;
-      color:var(--muted);
-      font-size:14px;
-      margin-top:6px;
-    }
-    .footer a{ color:var(--brand); text-decoration:none; }
-    .footer a:hover{ text-decoration:underline }
+        .form-group label {
+            display: block;
+            color: white;
+            margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: 400;
+        }
 
-    @media (max-width: 768px){
-      body{
-        background-image: var(--bg-mobile), var(--bg-desktop);
-        background-size: cover;
-        background-position:center;
-      }
-      .coin{ width:120px; }
-    }
-  </style>
+        .form-group input {
+            width: 100%;
+            padding: 16px 20px;
+            border: none;
+            border-radius: 8px;
+            background-color: white;
+            color: #333;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        .form-group input::placeholder {
+            color: #999;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.3);
+        }
+
+        .password-container {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 5px;
+        }
+
+        .reset-password {
+            text-align: center;
+            margin: 20px 0 30px 0;
+        }
+
+        .reset-password a {
+            color: #6B9DFF;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .reset-password a:hover {
+            text-decoration: underline;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 16px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .login-btn:hover {
+            background-color: #3367d6;
+        }
+
+        .login-btn:active {
+            background-color: #2851b8;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 480px) {
+            .login-container {
+                max-width: 320px;
+                padding: 0 10px;
+            }
+
+            .coin-logo {
+                width: 100px;
+                height: 100px;
+            }
+
+            .login-title {
+                font-size: 20px;
+                margin-bottom: 30px;
+            }
+
+            .form-group input {
+                padding: 14px 16px;
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+        }
+
+        /* Desktop adjustments */
+        @media (min-width: 768px) {
+            .login-container {
+                max-width: 400px;
+            }
+
+            .coin-logo {
+                width: 140px;
+                height: 140px;
+            }
+        }
+
+        /* Large screens */
+        @media (min-width: 1200px) {
+            body {
+                background-attachment: fixed;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div class="page">
-    <div class="card">
-      <div class="logo-wrap">
-        <img src="images/mobile_login_icon.png" alt="Financial Freedom coin logo" class="coin">
-      </div>
-      <h1>Log in</h1>
-      <form>
-        <label for="username">Username</label>
-        <input id="username" type="text" placeholder="you@example.com" class="input">
-
-        <label for="password">Password</label>
-        <input id="password" type="password" placeholder="••••••••" class="input">
-
-        <div class="row">
-          <a href="#" class="link">Reset password</a>
+    <div class="login-container">
+        <div class="logo-container">
+            <div class="coin-logo"></div>
+            <h1 class="login-title">Log in</h1>
         </div>
 
-        <button type="submit" class="btn">Log in</button>
-      </form>
-      <div class="footer">
-        Don’t have an account? <a href="#">Sign up</a>
-      </div>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="Enter your username" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-container">
+                    <input type="password" id="password" name="password" placeholder="Enter your password" required>
+                    <button type="button" class="password-toggle" onclick="togglePassword()">👁</button>
+                </div>
+            </div>
+
+            <div class="reset-password">
+                <a href="#" onclick="resetPassword(event)">Reset Password</a>
+            </div>
+
+            <button type="submit" class="login-btn">Log in</button>
+        </form>
     </div>
-  </div>
+
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleBtn = document.querySelector('.password-toggle');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleBtn.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleBtn.textContent = '👁';
+            }
+        }
+
+        function resetPassword(event) {
+            event.preventDefault();
+            // Add your password reset logic here
+            alert('Password reset functionality would be implemented here');
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (username && password) {
+                // Add your login logic here
+                console.log('Login attempt:', { username, password });
+                
+                // Example: redirect to dashboard or make API call
+                // window.location.href = '/dashboard';
+                alert('Login functionality would be implemented here');
+            } else {
+                alert('Please fill in all fields');
+            }
+        });
+
+        // Prevent form submission on Enter in password field if you want to handle it differently
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
 </body>
 </html>
