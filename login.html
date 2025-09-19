@@ -125,6 +125,17 @@
       .page{ padding-top:40px; }
       .coin{ width:180px }
     }
+    /* HARD OVERRIDE: remove card panel entirely */
+.card{
+  background: transparent !important; /* kill background var */
+  border: none !important;            /* remove border */
+  box-shadow: none !important;        /* remove glow/shadow outline */
+  backdrop-filter: none !important;   /* remove frosted blur pane */
+  -webkit-backdrop-filter: none !important;
+  padding: 24px;                      /* keep spacing */
+  border-radius: 0;                   /* optional: remove rounded corners */
+}
+
   </style>
 </head>
 <body>
