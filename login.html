@@ -45,14 +45,14 @@
       padding:clamp(16px,3vw,32px);
     }
     .card{
-      width:min(420px, 96vw);
-      background:var(--card);
+      background: rgba(11, 15, 20, 0.55); /* 0.55 = ~55% opaque */
       border:1px solid rgba(255,255,255,.06);
       border-radius:24px;
-      box-shadow:var(--shadow);
-      backdrop-filter:saturate(1.1) blur(6px);
+      box-shadow:0 8px 28px rgba(0,0,0,.35);
+      backdrop-filter: blur(10px); /* keeps it readable */
       padding:24px;
     }
+
     .logo-wrap{
       display:grid; place-items:center;
       margin-top:-12px; margin-bottom:8px;
