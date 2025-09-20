@@ -27,7 +27,7 @@
 
         .login-container {
             width: 100%;
-            max-width: 640px;
+            max-width: 640px; /* wider container */
             margin: 0 auto;
             text-align: center;
             padding: 0 16px;
@@ -39,10 +39,13 @@
 
         .coin-logo {
             width: 100%;
-            max-width: 420px;
-            aspect-ratio: 1 / 1;
+            max-width: 420px;   /* larger default coin */
+            aspect-ratio: 1 / 1; /* keeps square ratio */
             margin: 40px auto 20px;
             background-image: url('images/mobile_login_icon.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
         }
 
         .login-title {
@@ -141,12 +144,12 @@
         /* Mobile responsiveness */
         @media (max-width: 480px) {
             .login-container {
-                max-width: 320px;}{
+                max-width: 360px;
                 padding: 0 10px;
             }
 
             .coin-logo {
-                width: 280px;
+                max-width: 280px; /* bigger coin for phones */
             }
 
             .login-title {
@@ -156,7 +159,7 @@
 
             .form-group input {
                 padding: 14px 16px;
-                font-size: 16px; /* Prevents zoom on iOS */
+                font-size: 16px;
             }
         }
 
@@ -167,8 +170,7 @@
             }
 
             .coin-logo {
-                width: 480px;
-                height: 140px;
+                max-width: 480px; /* even larger coin for desktop */
             }
         }
 
@@ -225,7 +227,6 @@
 
         function resetPassword(event) {
             event.preventDefault();
-            // Add your password reset logic here
             alert('Password reset functionality would be implemented here');
         }
 
@@ -236,18 +237,13 @@
             const password = document.getElementById('password').value;
             
             if (username && password) {
-                // Add your login logic here
                 console.log('Login attempt:', { username, password });
-                
-                // Example: redirect to dashboard or make API call
-                // window.location.href = '/dashboard';
                 alert('Login functionality would be implemented here');
             } else {
                 alert('Please fill in all fields');
             }
         });
 
-        // Prevent form submission on Enter in password field if you want to handle it differently
         document.getElementById('password').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 document.getElementById('loginForm').dispatchEvent(new Event('submit'));
