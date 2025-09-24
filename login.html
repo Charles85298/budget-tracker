@@ -40,13 +40,14 @@
         .content-frame {
             width: 621px;
             height: 751px;
+            background: rgba(0, 20, 40, 0.1);
             border-radius: 8px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 40px 20px;
-
+            backdrop-filter: blur(2px);
         }
 
         .coin-logo {
@@ -59,6 +60,9 @@
             font-size: 48px;
             font-weight: 600;
             color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            -webkit-text-stroke: 1px #000000;
+            text-stroke: 1px #000000;
             text-align: center;
             margin-bottom: 15px;
         }
@@ -67,6 +71,7 @@
             font-size: 18px;
             font-weight: 400;
             color: white;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
             text-align: center;
             margin-bottom: 40px;
         }
@@ -421,55 +426,12 @@
                     </div>
 
                     <div class="button-row">
-                        <button type="button" class="link-button" onclick="showPasswordReset()">Reset Password</button>
+                        <button type="button" class="link-button" id="reset-password-btn">Reset Password</button>
                         <button type="submit" class="btn-primary">Sign In</button>
                     </div>
                 </form>
 
-                <div style="text-align: center; margin-top: 20px;">
-                    <button type="button" class="link-button" onclick="showSignUp()">Don't have an account? Sign Up</button>
-                </div>
-            </div>
 
-            <!-- Sign Up Form -->
-            <div id="signup-form" class="form-section">
-                <h2 class="welcome-title" style="font-size: 36px;">Create Account</h2>
-                <p class="welcome-subtitle">Join WisePath today</p>
-
-                <form role="form" autocomplete="on" novalidate>
-                    <div class="form-input-container">
-                        <label for="signup-email" class="sr-only">Email Address</label>
-                        <input 
-                            id="signup-email" 
-                            type="email" 
-                            class="form-input" 
-                            placeholder="Email Address"
-                            autocomplete="email"
-                            required>
-                        <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true">
-                            <path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
-                        </svg>
-                    </div>
-
-                    <div class="form-input-container">
-                        <label for="signup-password" class="sr-only">Password</label>
-                        <input 
-                            id="signup-password" 
-                            type="password" 
-                            class="form-input" 
-                            placeholder="Password"
-                            autocomplete="new-password"
-                            required>
-                        <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true">
-                            <path fill="currentColor" d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
-                        </svg>
-                    </div>
-
-                    <div class="button-row">
-                        <button type="button" class="btn-secondary" onclick="showLogin()">Back</button>
-                        <button type="submit" class="btn-primary">Sign Up</button>
-                    </div>
-                </form>
             </div>
 
             <!-- Password Reset Form -->
@@ -493,7 +455,7 @@
                     </div>
 
                     <div class="button-row">
-                        <button type="button" class="btn-secondary" onclick="showLogin()">Back</button>
+                        <button type="button" class="btn-secondary" id="reset-back-btn">Back</button>
                         <button type="submit" class="btn-primary">Send Reset</button>
                     </div>
                 </form>
@@ -523,7 +485,7 @@
                     </div>
 
                     <div class="button-row">
-                        <button type="button" class="btn-secondary" onclick="cancelMFA()">Cancel</button>
+                        <button type="button" class="btn-secondary" id="mfa-cancel-btn">Cancel</button>
                         <button type="submit" class="btn-primary">Verify</button>
                     </div>
                 </form>
@@ -557,7 +519,7 @@
                     </div>
 
                     <div class="button-row">
-                        <button type="button" class="btn-secondary" onclick="skipMFA()">Skip for now</button>
+                        <button type="button" class="btn-secondary" id="mfa-skip-btn">Skip for now</button>
                         <button type="submit" class="btn-primary">Enable 2FA</button>
                     </div>
                 </form>
@@ -638,7 +600,6 @@
 
         // Navigation functions
         window.showLogin = () => showState('login-form');
-        window.showSignUp = () => showState('signup-form');
         window.showPasswordReset = () => showState('reset-form');
         window.cancelMFA = () => {
             challengeData = null;
@@ -703,7 +664,6 @@
             showMessage(userMessage, 'error');
         }
 
-        // Authentication functions
         async function handleLogin(event) {
             event.preventDefault();
             clearMessages();
@@ -740,46 +700,6 @@
             } catch (err) {
                 console.error('Login error:', err);
                 showMessage('An error occurred during login', 'error');
-            }
-        }
-
-        async function handleSignUp(event) {
-            event.preventDefault();
-            clearMessages();
-
-            const email = sanitizeInput(document.getElementById('signup-email').value);
-            const password = document.getElementById('signup-password').value;
-
-            if (!validateEmail(email)) {
-                showMessage('Please enter a valid email address', 'error');
-                return;
-            }
-
-            if (password.length < 8) {
-                showMessage('Password must be at least 8 characters long', 'error');
-                return;
-            }
-
-            try {
-                const { data, error } = await supabase.auth.signUp({
-                    email: email,
-                    password: password
-                });
-
-                if (error) {
-                    handleAuthError(error);
-                    return;
-                }
-
-                showMessage('Account created! Please check your email for verification.', 'success');
-                document.getElementById('signup-email').value = '';
-                document.getElementById('signup-password').value = '';
-                
-                setTimeout(() => showState('login-form'), 3000);
-
-            } catch (err) {
-                console.error('Signup error:', err);
-                showMessage('An error occurred during signup', 'error');
             }
         }
 
@@ -1044,13 +964,24 @@
             window.location.href = 'dashboard.html';
         }
 
-        // Event listeners
+        // Event listeners for form submissions
         document.getElementById('login-form').querySelector('form').addEventListener('submit', handleLogin);
-        document.getElementById('signup-form').querySelector('form').addEventListener('submit', handleSignUp);
         document.getElementById('reset-form').querySelector('form').addEventListener('submit', handlePasswordReset);
         document.getElementById('mfa-challenge-form').querySelector('form').addEventListener('submit', handleMFAChallenge);
         document.getElementById('mfa-enrollment-form').querySelector('form').addEventListener('submit', handleMFAEnrollment);
         document.getElementById('new-password-form').querySelector('form').addEventListener('submit', handleNewPassword);
+        
+        // Event listeners for navigation buttons
+        document.getElementById('reset-password-btn').addEventListener('click', () => showState('reset-form'));
+        document.getElementById('reset-back-btn').addEventListener('click', () => showState('login-form'));
+        document.getElementById('mfa-cancel-btn').addEventListener('click', () => {
+            challengeData = null;
+            showState('login-form');
+        });
+        document.getElementById('mfa-skip-btn').addEventListener('click', () => {
+            enrollmentData = null;
+            redirectToMainApp();
+        });
 
         // Check for password recovery on page load
         window.addEventListener('load', async () => {
