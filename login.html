@@ -6,7 +6,6 @@
     
     <!-- Security Headers -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-Frame-Options" content="DENY">
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; connect-src 'self' https://*.supabase.co;">
     <meta name="robots" content="noindex, nofollow">
@@ -40,14 +39,12 @@
         .content-frame {
             width: 621px;
             height: 751px;
-            background: rgba(0, 20, 40, 0.1);
             border-radius: 8px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             padding: 40px 20px;
-            backdrop-filter: blur(2px);
         }
 
         .coin-logo {
@@ -60,8 +57,6 @@
             font-size: 48px;
             font-weight: 600;
             color: white;
-            -webkit-text-stroke: 1px #000000;
-            text-stroke: 1px #000000;
             text-align: center;
             margin-bottom: 15px;
         }
@@ -388,6 +383,9 @@
             <!-- Login Form -->
             <div id="login-form" class="form-section active">
                 <form role="form" aria-labelledby="login-title" autocomplete="on" novalidate>
+                    <!-- Hidden username field for accessibility -->
+                    <input type="text" name="username" autocomplete="username" style="display: none;" tabindex="-1" aria-hidden="true">
+                    
                     <div class="form-input-container">
                         <label for="email-input" class="sr-only">Email Address</label>
                         <input 
