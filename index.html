@@ -3,6 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:;">
+    <meta name="robots" content="noindex, nofollow">
+    
     <title>WisePath - A means to financial freedom</title>
     <style>
         * {
@@ -175,14 +183,14 @@
 <body>
     <div class="container">
         <div class="content-frame">
-            <img src="images/mobile_login_icon.png" alt="Financial Freedom Coin" class="coin-logo">
+            <img src="images/mobile_login_icon.png" alt="Financial Freedom Coin" class="coin-logo" loading="lazy">
             
             <h1 class="title">WisePath</h1>
             
             <p class="tagline">A means to financial freedom</p>
             
-            <a href="login.html" class="login-button">
-                <svg class="star-icon" viewBox="0 0 24 24">
+            <a href="login.html" class="login-button" rel="noopener">
+                <svg class="star-icon" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
                 Login
