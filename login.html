@@ -1,958 +1,522 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Budget Tracker</title>
-    
-    <!-- SECURITY: Updated Content Security Policy - More permissive for needed resources -->
-    <meta http-equiv="Content-Security-Policy" content="
-        default-src 'self';
-        script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.skypack.dev https://cdn.jsdelivr.net https://unpkg.com;
-        style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
-        img-src 'self' data: https: blob:;
-        connect-src 'self' https://*.supabase.co https://cdn.skypack.dev wss://*.supabase.co;
-        font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com https://cdnjs.cloudflare.com;
-        media-src 'self';
-        object-src 'none';
-        base-uri 'self';
-        form-action 'self';
-        frame-ancestors 'none';
-        upgrade-insecure-requests;
-    ">
-    
-    <!-- SECURITY: Additional security headers -->
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
-    <meta http-equiv="X-Frame-Options" content="DENY">
-    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=()">
-    
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .form-group { margin: 15px 0; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #374151; }
-        .form-group input { width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; transition: border-color 0.2s; box-sizing: border-box; }
-        .form-group input:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1); }
-        .error-message { color: #dc3545; margin: 10px 0; display: none; padding: 10px; background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; font-size: 14px; }
-        .success-message { color: #155724; margin: 10px 0; display: none; padding: 10px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; font-size: 14px; }
-        .rate-limit-notice { color: #856404; margin: 10px 0; display: none; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; font-size: 14px; }
-        button { background: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: 600; width: 100%; transition: background-color 0.2s; }
-        button:hover:not(:disabled) { background: #0056b3; }
-        button:disabled { background: #6c757d; cursor: not-allowed; }
-        .btn-secondary { background: #6c757d; margin-top: 10px; }
-        .btn-secondary:hover:not(:disabled) { background: #545b62; }
-        .mfa-container, .qr-container { margin: 20px 0; }
-        table { border-collapse: collapse; width: 100%; margin: 20px 0; }
-        th, td { border: 1px solid #ddd; padding: 12px 8px; text-align: left; }
-        th { background-color: #f8f9fa; font-weight: 600; }
-        .password-strength { margin: 5px 0; font-size: 12px; }
-        .strength-weak { color: #dc3545; }
-        .strength-medium { color: #ffc107; }
-        .strength-strong { color: #28a745; }
-        .captcha-container { margin: 15px 0; padding: 15px; border: 2px dashed #dee2e6; border-radius: 6px; text-align: center; background: #f8f9fa; }
-        .security-notice { background: #e7f3ff; border: 1px solid #b8daff; color: #004085; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; }
-        .dashboard-card { background: white; border-radius: 8px; padding: 20px; margin: 15px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .account-item { padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
-        .account-item:last-child { border-bottom: none; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Simple Login Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { 
+      font-family: system-ui, Arial; 
+      max-width: 600px; 
+      margin: 2rem auto; 
+      padding: 1rem; 
+    }
+    .status {
+      font-size: 1.2em;
+      font-weight: bold;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+    }
+    .logged-in { 
+      background: #d4edda; 
+      color: #155724; 
+      border: 1px solid #c3e6cb;
+    }
+    .logged-out { 
+      background: #f8d7da; 
+      color: #721c24; 
+      border: 1px solid #f5c6cb;
+    }
+    .card { 
+      border: 1px solid #ddd; 
+      border-radius: 8px; 
+      padding: 1rem; 
+      margin: 1rem 0; 
+    }
+    .form-group { 
+      margin: 0.5rem 0; 
+    }
+    label { 
+      display: block; 
+      margin-bottom: 0.25rem; 
+    }
+    input { 
+      width: 100%; 
+      padding: 0.5rem; 
+      border: 1px solid #ccc; 
+      border-radius: 4px; 
+    }
+    button { 
+      background: #007bff; 
+      color: white; 
+      border: none; 
+      padding: 0.75rem 1rem; 
+      border-radius: 4px; 
+      cursor: pointer; 
+      margin: 0.5rem 0; 
+    }
+    button:hover { 
+      background: #0056b3; 
+    }
+    .hide { 
+      display: none; 
+    }
+    .message { 
+      padding: 0.5rem; 
+      margin: 0.5rem 0; 
+      border-radius: 4px; 
+    }
+    .success { 
+      background: #d4edda; 
+      color: #155724; 
+    }
+    .error { 
+      background: #f8d7da; 
+      color: #721c24; 
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🔐 Secure Budget Tracker</h1>
-        
-        <!-- SECURITY: Added security notice -->
-        <div class="security-notice">
-            <strong>Security Notice:</strong> This application uses enterprise-grade security including multi-factor authentication, audit logging, and data encryption.
-        </div>
-        
-        <!-- Login Form with Enhanced Security -->
-        <div id="loginSection">
-            <h2>Login</h2>
-            <form id="loginForm" autocomplete="on">
-                <div class="form-group">
-                    <label for="email">Email Address:</label>
-                    <input 
-                        type="email" 
-                        id="email" 
-                        name="email"
-                        autocomplete="email"
-                        required
-                        placeholder="your.email@example.com"
-                        spellcheck="false"
-                        data-lpignore="true"
-                    >
-                </div>
-                
-                <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password"
-                        autocomplete="current-password"
-                        required
-                        placeholder="Enter your password"
-                        minlength="8"
-                        data-lpignore="true"
-                    >
-                </div>
-                
-                <button type="submit" id="loginButton">Sign In</button>
-            </form>
-            
-            <div id="rateLimitNotice" class="rate-limit-notice">
-                ⚠️ Too many login attempts. Please wait before trying again.
-            </div>
-            
-            <div id="errorMessage" class="error-message"></div>
-            <div id="successMessage" class="success-message"></div>
-            
-            <p><button type="button" class="btn-secondary" id="showRegisterBtn">Create New Account</button></p>
-        </div>
+  <h1>Simple Login Test</h1>
 
-        <!-- Registration Form with Enhanced Security -->
-        <div id="registerSection" style="display: none;">
-            <h2>Create Account</h2>
-            <form id="registerForm" autocomplete="on">
-                <div class="form-group">
-                    <label for="regEmail">Email Address:</label>
-                    <input 
-                        type="email" 
-                        id="regEmail" 
-                        name="email"
-                        autocomplete="email"
-                        required
-                        placeholder="your.email@example.com"
-                        spellcheck="false"
-                        data-lpignore="true"
-                    >
-                </div>
-                
-                <div class="form-group">
-                    <label for="regPassword">Password (minimum 12 characters):</label>
-                    <input 
-                        type="password" 
-                        id="regPassword" 
-                        name="new-password"
-                        autocomplete="new-password"
-                        required
-                        placeholder="Create a strong password"
-                        minlength="12"
-                        data-lpignore="true"
-                    >
-                    <div id="passwordStrength" class="password-strength"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="confirmPassword">Confirm Password:</label>
-                    <input 
-                        type="password" 
-                        id="confirmPassword" 
-                        name="confirm-password"
-                        autocomplete="new-password"
-                        required
-                        placeholder="Confirm your password"
-                        minlength="12"
-                        data-lpignore="true"
-                    >
-                </div>
-                
-                <!-- SECURITY: Enhanced CAPTCHA placeholder -->
-                <div class="form-group">
-                    <div id="captchaContainer" class="captcha-container">
-                        <div style="padding: 20px;">
-                            <strong>🛡️ Security Verification Required</strong>
-                            <br><small>CAPTCHA integration point - implement with Turnstile or hCaptcha</small>
-                            <br><input type="checkbox" id="captchaCheck" required> I'm not a robot
-                        </div>
-                    </div>
-                </div>
-                
-                <button type="submit" id="registerButton">Create Account</button>
-            </form>
-            
-            <p><button type="button" class="btn-secondary" id="showLoginBtn">← Back to Login</button></p>
-        </div>
+  <!-- Login Status Display -->
+  <div id="status" class="status logged-out">
+    Not signed in
+  </div>
 
-        <!-- QR Code Display Container (secure) -->
-        <div id="qrContainer" class="qr-container" style="display: none;">
-            <h3>🔐 Multi-Factor Authentication Setup</h3>
-            <div id="qrCodeDisplay" style="text-align: center; padding: 20px;"></div>
-            <p style="font-size: 14px; color: #6c757d;">
-                Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
-            </p>
-        </div>
-
-        <!-- MFA Factors Table Container (secure) -->
-        <div id="mfaFactorsContainer" class="mfa-container" style="display: none;">
-            <h3>🛡️ Security Factors</h3>
-            <table id="mfaFactorsTable">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="mfaFactorsBody">
-                    <!-- Populated securely via JavaScript -->
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Dashboard (shown after login) -->
-        <div id="dashboardSection" style="display: none;">
-            <h2>📊 Dashboard</h2>
-            
-            <div class="dashboard-card">
-                <h3>Household Information</h3>
-                <div id="householdInfo">Loading...</div>
-            </div>
-            
-            <div class="dashboard-card">
-                <h3>Your Accounts</h3>
-                <div id="accountsList">Loading...</div>
-            </div>
-            
-            <div class="dashboard-card">
-                <h3>Security</h3>
-                <button type="button" id="setupMfaButton" style="background: #28a745; margin-right: 10px;">Setup MFA</button>
-                <button type="button" id="viewAuditLogButton" style="background: #6c757d;">View Audit Log</button>
-            </div>
-            
-            <button type="button" class="btn-secondary" id="logoutButton">Sign Out</button>
-        </div>
+  <!-- Sign Up Form -->
+  <div class="card" id="signup-section">
+    <h2>Create Account</h2>
+    <div class="form-group">
+      <label>Email:</label>
+      <input type="email" id="signup-email" placeholder="you@example.com" />
     </div>
+    <div class="form-group">
+      <label>Password:</label>
+      <input type="password" id="signup-password" placeholder="Password" />
+    </div>
+    <button onclick="signUp()">Sign Up</button>
+    <div id="signup-message" class="message hide"></div>
+  </div>
 
-    <script type="module">
-        // SECURITY: Initialize Supabase client safely
-        let supabase = null;
-        
-        // Check if we're in a development/artifact environment
-        const isDevelopment = window.location.hostname === 'claude.ai' || 
-                             window.location.hostname.includes('claudeusercontent.com');
-        
-        async function initializeSupabase() {
-            try {
-                if (isDevelopment) {
-                    // Mock Supabase for development/testing
-                    console.log('Running in development mode - using mock Supabase client');
-                    supabase = {
-                        auth: {
-                            signInWithPassword: async (credentials) => {
-                                console.log('Mock login attempt:', credentials.email);
-                                // Simulate successful login for demo
-                                return { 
-                                    data: { user: { email: credentials.email } }, 
-                                    error: null 
-                                };
-                            },
-                            signUp: async (credentials) => {
-                                console.log('Mock signup attempt:', credentials.email);
-                                return { 
-                                    data: { user: { email: credentials.email } }, 
-                                    error: null 
-                                };
-                            },
-                            signOut: async () => {
-                                console.log('Mock signout');
-                                return { error: null };
-                            },
-                            onAuthStateChange: (callback) => {
-                                console.log('Mock auth state listener registered');
-                                // Don't trigger callback in mock mode
-                                return { data: { subscription: { unsubscribe: () => {} } } };
-                            },
-                            mfa: {
-                                listFactors: async () => ({ data: { factors: [] }, error: null }),
-                                enroll: async () => ({ data: null, error: { message: 'MFA not available in demo mode' } }),
-                                deleteFactor: async () => ({ error: { message: 'MFA not available in demo mode' } })
-                            }
-                        },
-                        from: () => ({
-                            select: () => ({
-                                order: () => Promise.resolve({ data: [], error: null })
-                            })
-                        }),
-                        rpc: async (functionName) => {
-                            console.log('Mock RPC call:', functionName);
-                            return { data: 'mock-household-id', error: null };
-                        }
-                    };
-                } else {
-                    // Production: Import actual Supabase client
-                    const module = await import('./supabaseClient.js');
-                    supabase = module.supabase;
-                }
-                
-                console.log('Supabase client initialized successfully');
-                return true;
-            } catch (error) {
-                console.error('Failed to initialize Supabase client:', error);
-                displayError('Application initialization failed. Please refresh the page.');
-                return false;
-            }
-        }
+  <!-- Sign In Form -->
+  <div class="card" id="signin-section">
+    <h2>Sign In</h2>
+    <div class="form-group">
+      <label>Email:</label>
+      <input type="email" id="signin-email" placeholder="you@example.com" />
+    </div>
+    <div class="form-group">
+      <label>Password:</label>
+      <input type="password" id="signin-password" placeholder="Password" />
+    </div>
+    <button onclick="signIn()">Sign In</button>
+    <button onclick="togglePasswordReset()" style="background: #6c757d;">Forgot Password?</button>
+    <div id="signin-message" class="message hide"></div>
+  </div>
 
-        // SECURITY: Enhanced Rate Limiter with exponential backoff
-        class SecureRateLimiter {
-            constructor(maxAttempts = 5, windowMs = 15 * 60 * 1000) {
-                this.attempts = new Map();
-                this.maxAttempts = maxAttempts;
-                this.windowMs = windowMs;
-                this.backoffMultiplier = 2;
-            }
-            
-            isAllowed(identifier) {
-                const now = Date.now();
-                const userAttempts = this.attempts.get(identifier) || [];
-                const recentAttempts = userAttempts.filter(time => now - time < this.windowMs);
-                
-                if (recentAttempts.length >= this.maxAttempts) {
-                    return false;
-                }
-                
-                this.attempts.set(identifier, [...recentAttempts, now]);
-                return true;
-            }
-            
-            getRemainingTime(identifier) {
-                const userAttempts = this.attempts.get(identifier) || [];
-                if (userAttempts.length === 0) return 0;
-                
-                const oldestAttempt = Math.min(...userAttempts);
-                const backoffTime = this.windowMs * Math.pow(this.backoffMultiplier, Math.max(0, userAttempts.length - this.maxAttempts));
-                const timeRemaining = backoffTime - (Date.now() - oldestAttempt);
-                return Math.max(0, timeRemaining);
-            }
-            
-            reset(identifier) {
-                this.attempts.delete(identifier);
-            }
-        }
+  <!-- Password Reset Form (hidden by default) -->
+  <div class="card hide" id="reset-section">
+    <h2>Reset Password</h2>
+    <div class="form-group">
+      <label>Email:</label>
+      <input type="email" id="reset-email" placeholder="you@example.com" />
+    </div>
+    <button onclick="resetPassword()">Send Reset Email</button>
+    <button onclick="togglePasswordReset()" style="background: #6c757d;">Back to Sign In</button>
+    <div id="reset-message" class="message hide"></div>
+  </div>
 
-        // Wait for DOM to be ready
-        async function initializeApp() {
-            // Initialize Supabase first
-            await initializeSupabase();
-            
-            // Initialize rate limiter
-            const loginLimiter = new SecureRateLimiter(5, 15 * 60 * 1000);
+  <!-- Force New Password Form (shown after password recovery) -->
+  <div class="card hide" id="new-password-section">
+    <h2>Set New Password</h2>
+    <p>You accessed your account via password reset. Please set a new password to continue.</p>
+    <div class="form-group">
+      <label>New Password:</label>
+      <input type="password" id="new-password" placeholder="Enter new password" />
+    </div>
+    <button onclick="updatePassword()">Set New Password</button>
+    <div id="new-password-message" class="message hide"></div>
+  </div>
 
-        // SECURITY: Enhanced DOM manipulation utilities
-        const SecureDOM = {
-            // Safe alternative to innerHTML - prevents XSS
-            setTextContent(element, text) {
-                if (element && element.nodeType === Node.ELEMENT_NODE) {
-                    element.textContent = String(text || '').trim();
-                }
-            },
-            
-            // Safe way to create elements with text content
-            createElement(tag, textContent = '', attributes = {}) {
-                const element = document.createElement(tag);
-                if (textContent) {
-                    element.textContent = String(textContent);
-                }
-                Object.entries(attributes).forEach(([key, value]) => {
-                    if (typeof key === 'string' && value !== null && value !== undefined) {
-                        element.setAttribute(key, String(value));
-                    }
-                });
-                return element;
-            },
-            
-            // Safe way to clear and populate container
-            replaceContent(container, ...elements) {
-                if (container && container.nodeType === Node.ELEMENT_NODE) {
-                    container.replaceChildren(...elements.filter(el => el && el.nodeType));
-                }
-            },
+  <!-- MFA Challenge for Password Change -->
+  <div class="card hide" id="mfa-challenge-section">
+    <h2>MFA Required</h2>
+    <p>Enter your 6-digit authenticator code to confirm password change.</p>
+    <div class="form-group">
+      <label>Authenticator Code:</label>
+      <input type="text" id="mfa-challenge-code" placeholder="123456" maxlength="6" />
+    </div>
+    <button onclick="verifyMFAAndUpdatePassword()">Verify & Update Password</button>
+    <div id="mfa-challenge-message" class="message hide"></div>
+  </div>
 
-            // Safe way to show/hide elements with null checks
-            show(element) {
-                if (element && element.style) {
-                    element.style.display = 'block';
-                }
-            },
+  <!-- Sign Out Button (hidden when logged out) -->
+  <div class="card hide" id="signout-section">
+    <button onclick="signOut()">Sign Out</button>
+  </div>
 
-            hide(element) {
-                if (element && element.style) {
-                    element.style.display = 'none';
-                }
-            },
+  <script type="module">
+    import { supabase } from './supabaseClient.js';
 
-            // SECURITY: Safe HTML sanitization for trusted content only
-            sanitizeHTML(html) {
-                const temp = document.createElement('div');
-                temp.textContent = html; // This escapes HTML automatically
-                return temp.innerHTML;
-            }
-        };
+    // Make functions available globally
+    window.supabase = supabase;
+    window.signUp = signUp;
+    window.signIn = signIn;
+    window.signOut = signOut;
+    window.resetPassword = resetPassword;
+    window.togglePasswordReset = togglePasswordReset;
+    window.updatePassword = updatePassword;
+    window.verifyMFAAndUpdatePassword = verifyMFAAndUpdatePassword;
 
-        // SECURITY: Enhanced error display with sanitization
-        function displayError(message, duration = 5000) {
-            const errorContainer = document.getElementById('errorMessage');
-            if (!errorContainer) return;
-            
-            // SECURITY: Sanitize and categorize error messages
-            let safeMessage = 'An unexpected error occurred. Please try again.';
-            
-            if (typeof message === 'string') {
-                const msg = message.toLowerCase();
-                if (msg.includes('duplicate') || msg.includes('already registered')) {
-                    safeMessage = 'This email address is already registered. Try signing in instead.';
-                } else if (msg.includes('invalid') || msg.includes('wrong')) {
-                    safeMessage = 'Invalid email or password. Please check your credentials.';
-                } else if (msg.includes('confirm') || msg.includes('verification')) {
-                    safeMessage = 'Please check your email and confirm your account before signing in.';
-                } else if (msg.includes('rate') || msg.includes('attempts') || msg.includes('limit')) {
-                    safeMessage = 'Too many attempts. Please wait before trying again.';
-                } else if (msg.includes('network') || msg.includes('connection')) {
-                    safeMessage = 'Network error. Please check your connection and try again.';
-                } else if (msg.includes('timeout')) {
-                    safeMessage = 'Request timed out. Please try again.';
-                }
-            }
-            
-            SecureDOM.setTextContent(errorContainer, `❌ ${safeMessage}`);
-            SecureDOM.show(errorContainer);
-            
-            // Auto-hide with cleanup
-            setTimeout(() => {
-                SecureDOM.hide(errorContainer);
-                SecureDOM.setTextContent(errorContainer, '');
-            }, duration);
-        }
+    // Store for MFA challenge
+    let currentChallengeId = null;
+    let currentFactorId = null;
+    let pendingPassword = null;
 
-        function displaySuccess(message, duration = 5000) {
-            const successContainer = document.getElementById('successMessage');
-            if (!successContainer) return;
-            
-            SecureDOM.setTextContent(successContainer, `✅ ${String(message)}`);
-            SecureDOM.show(successContainer);
-            
-            setTimeout(() => {
-                SecureDOM.hide(successContainer);
-                SecureDOM.setTextContent(successContainer, '');
-            }, duration);
-        }
+    // Update UI based on login status
+    function updateStatus(user, isPasswordRecovery = false) {
+      const statusEl = document.getElementById('status');
+      const signupSection = document.getElementById('signup-section');
+      const signinSection = document.getElementById('signin-section');
+      const signoutSection = document.getElementById('signout-section');
+      const resetSection = document.getElementById('reset-section');
+      const newPasswordSection = document.getElementById('new-password-section');
 
-        // SECURITY: Password strength validator
-        function validatePasswordStrength(password) {
-            const checks = {
-                length: password.length >= 12,
-                lowercase: /[a-z]/.test(password),
-                uppercase: /[A-Z]/.test(password),
-                numbers: /\d/.test(password),
-                special: /[^a-zA-Z0-9]/.test(password)
-            };
-            
-            const score = Object.values(checks).filter(Boolean).length;
-            let strength = 'weak';
-            let message = 'Weak password';
-            let className = 'strength-weak';
-            
-            if (score >= 4 && password.length >= 12) {
-                strength = 'strong';
-                message = 'Strong password ✓';
-                className = 'strength-strong';
-            } else if (score >= 3 && password.length >= 10) {
-                strength = 'medium';
-                message = 'Medium strength - consider adding more complexity';
-                className = 'strength-medium';
-            }
-            
-            return { strength, message, className, score };
-        }
+      // Check if this is the change password page
+      const urlParams = new URLSearchParams(window.location.search);
+      const isChangePasswordPage = urlParams.get('page') === 'change-password';
 
-        // SECURITY: Enhanced QR code display with validation
-        function displayQRCode(qrCodeDataUrl) {
-            const qrContainer = document.getElementById('qrContainer');
-            const qrDisplay = document.getElementById('qrCodeDisplay');
-            
-            if (!qrCodeDataUrl || typeof qrCodeDataUrl !== 'string') {
-                displayError('Invalid QR code data received.');
-                return;
-            }
-            
-            // SECURITY: Validate data URL format
-            if (!qrCodeDataUrl.startsWith('data:image/')) {
-                displayError('Invalid QR code format.');
-                return;
-            }
-            
-            const img = SecureDOM.createElement('img', '', {
-                'src': qrCodeDataUrl,
-                'alt': 'QR Code for MFA setup',
-                'style': 'max-width: 256px; height: auto; border: 2px solid #e5e7eb; border-radius: 8px;',
-                'loading': 'eager'
-            });
-            
-            // SECURITY: Handle image load errors
-            img.onerror = () => {
-                displayError('Failed to load QR code image.');
-                SecureDOM.hide(qrContainer);
-            };
-            
-            SecureDOM.replaceContent(qrDisplay, img);
-            SecureDOM.show(qrContainer);
-        }
+      if (isChangePasswordPage && user) {
+        // Show only password change form (Supabase docs approach)
+        statusEl.textContent = 'Set your new password';
+        statusEl.className = 'status logged-out';
+        signupSection.classList.add('hide');
+        signinSection.classList.add('hide');
+        signoutSection.classList.add('hide');
+        resetSection.classList.add('hide');
+        newPasswordSection.classList.remove('hide');
+      } else if (isPasswordRecovery) {
+        // Force password change after recovery (fallback)
+        statusEl.textContent = 'Password reset required - set new password';
+        statusEl.className = 'status logged-out';
+        signupSection.classList.add('hide');
+        signinSection.classList.add('hide');
+        signoutSection.classList.add('hide');
+        resetSection.classList.add('hide');
+        newPasswordSection.classList.remove('hide');
+      } else if (user) {
+        statusEl.textContent = `Logged in as: ${user.email}`;
+        statusEl.className = 'status logged-in';
+        signupSection.classList.add('hide');
+        signinSection.classList.add('hide');
+        signoutSection.classList.remove('hide');
+        resetSection.classList.add('hide');
+        newPasswordSection.classList.add('hide');
+      } else {
+        statusEl.textContent = 'Not signed in';
+        statusEl.className = 'status logged-out';
+        signupSection.classList.remove('hide');
+        signinSection.classList.remove('hide');
+        signoutSection.classList.add('hide');
+        resetSection.classList.add('hide');
+        newPasswordSection.classList.add('hide');
+      }
+    }
 
-        // SECURITY: Enhanced MFA factors display with proper escaping
-        function displayMFAFactors(factors) {
-            const tableBody = document.getElementById('mfaFactorsBody');
-            const container = document.getElementById('mfaFactorsContainer');
-            
-            if (!tableBody || !container) return;
-            
-            SecureDOM.replaceContent(tableBody);
-            
-            if (!Array.isArray(factors) || factors.length === 0) {
-                const row = SecureDOM.createElement('tr');
-                const cell = SecureDOM.createElement('td', 'No MFA factors configured', { 
-                    'colspan': '4',
-                    'style': 'text-align: center; color: #6c757d; font-style: italic;'
-                });
-                row.appendChild(cell);
-                tableBody.appendChild(row);
-            } else {
-                factors.forEach((factor, index) => {
-                    if (!factor || typeof factor !== 'object') return;
-                    
-                    const row = document.createElement('tr');
-                    
-                    // SECURITY: Escape all user data
-                    const typeCell = SecureDOM.createElement('td', factor.type || 'Unknown');
-                    const statusCell = SecureDOM.createElement('td', factor.status || 'Unknown');
-                    const createdCell = SecureDOM.createElement('td', 
-                        factor.created_at ? new Date(factor.created_at).toLocaleDateString() : 'Unknown'
-                    );
-                    
-                    const actionsCell = document.createElement('td');
-                    const deleteButton = SecureDOM.createElement('button', 'Delete', {
-                        'type': 'button',
-                        'data-factor-id': factor.id || '',
-                        'style': 'background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 12px; cursor: pointer;'
-                    });
-                    
-                    deleteButton.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        const factorId = e.target.getAttribute('data-factor-id');
-                        if (factorId) {
-                            deleteMFAFactor(factorId);
-                        }
-                    });
-                    
-                    actionsCell.appendChild(deleteButton);
-                    
-                    [typeCell, statusCell, createdCell, actionsCell].forEach(cell => {
-                        row.appendChild(cell);
-                    });
-                    
-                    tableBody.appendChild(row);
-                });
-            }
-            
-            SecureDOM.show(container);
-        }
+    // Show message
+    function showMessage(elementId, message, isError = false) {
+      const el = document.getElementById(elementId);
+      el.textContent = message;
+      el.className = `message ${isError ? 'error' : 'success'}`;
+      el.classList.remove('hide');
+    }
 
-            // Enhanced login form handler
-            const loginForm = document.getElementById('loginForm');
-            if (loginForm) {
-                loginForm.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    
-                    const email = document.getElementById('email')?.value?.trim() || '';
-                    const password = document.getElementById('password')?.value || '';
-                    
-                    // SECURITY: Enhanced input validation
-                    if (!email || !password) {
-                        displayError('Please enter both email and password.');
-                        return;
-                    }
-                    
-                    // SECURITY: Basic email format validation
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    if (!emailRegex.test(email)) {
-                        displayError('Please enter a valid email address.');
-                        return;
-                    }
-                    
-                    // SECURITY: Rate limiting check
-                    if (!loginLimiter.isAllowed(email)) {
-                        const remainingTime = Math.ceil(loginLimiter.getRemainingTime(email) / 1000 / 60);
-                        displayError(`Account temporarily locked. Try again in ${remainingTime} minutes.`);
-                        SecureDOM.show(document.getElementById('rateLimitNotice'));
-                        return;
-                    }
-                    
-                    const loginButton = document.getElementById('loginButton');
-                    if (!loginButton) return;
-                    
-                    loginButton.disabled = true;
-                    SecureDOM.setTextContent(loginButton, 'Signing in...');
-                    
-                    try {
-                        if (!supabase) {
-                            throw new Error('Authentication service unavailable');
-                        }
-                        
-                        const { data, error } = await supabase.auth.signInWithPassword({
-                            email: email,
-                            password: password
-                        });
-                        
-                        if (error) {
-                            displayError(error.message);
-                            return;
-                        }
-                        
-                        // SECURITY: Reset rate limiter on successful login
-                        loginLimiter.reset(email);
-                        
-                        displaySuccess('Login successful! Welcome back.');
-                        await showDashboard(data.user);
-                        
-                    } catch (error) {
-                        console.error('Login error:', error);
-                        displayError('Authentication failed. Please try again.');
-                    } finally {
-                        loginButton.disabled = false;
-                        SecureDOM.setTextContent(loginButton, 'Sign In');
-                        SecureDOM.hide(document.getElementById('rateLimitNotice'));
-                        
-                        // SECURITY: Clear password field
-                        const passwordField = document.getElementById('password');
-                        if (passwordField) passwordField.value = '';
-                    }
-                });
-            }
+    // Hide message
+    function hideMessage(elementId) {
+      document.getElementById(elementId).classList.add('hide');
+    }
 
-        // Enhanced registration form handler
-        document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const email = document.getElementById('regEmail')?.value?.trim() || '';
-            const password = document.getElementById('regPassword')?.value || '';
-            const confirmPassword = document.getElementById('confirmPassword')?.value || '';
-            const captchaCheck = document.getElementById('captchaCheck')?.checked || false;
-            
-            // SECURITY: Enhanced validation
-            if (!email || !password || !confirmPassword) {
-                displayError('Please fill in all fields.');
-                return;
-            }
-            
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                displayError('Please enter a valid email address.');
-                return;
-            }
-            
-            if (password !== confirmPassword) {
-                displayError('Passwords do not match.');
-                return;
-            }
-            
-            const passwordCheck = validatePasswordStrength(password);
-            if (passwordCheck.score < 3) {
-                displayError('Password is too weak. Please create a stronger password.');
-                return;
-            }
-            
-            if (!captchaCheck) {
-                displayError('Please complete the security verification.');
-                return;
-            }
-            
-            const registerButton = document.getElementById('registerButton');
-            if (!registerButton) return;
-            
-            registerButton.disabled = true;
-            SecureDOM.setTextContent(registerButton, 'Creating account...');
-            
-            try {
-                if (!supabase) {
-                    throw new Error('Authentication service unavailable');
-                }
-                
-                const { data, error } = await supabase.auth.signUp({
-                    email: email,
-                    password: password,
-                    options: {
-                        emailRedirectTo: `${window.location.origin}/confirm`,
-                        data: {
-                            timestamp: new Date().toISOString()
-                        }
-                    }
-                });
-                
-                if (error) {
-                    displayError(error.message);
-                    return;
-                }
-                
-                displaySuccess('Account created! Please check your email for the confirmation link.');
-                
-                // Clear form on success
-                document.getElementById('registerForm')?.reset();
-                document.getElementById('captchaCheck').checked = false;
-                
-            } catch (error) {
-                console.error('Registration error:', error);
-                displayError('Registration failed. Please try again.');
-            } finally {
-                registerButton.disabled = false;
-                SecureDOM.setTextContent(registerButton, 'Create Account');
-                
-                // SECURITY: Clear sensitive fields
-                ['regPassword', 'confirmPassword'].forEach(id => {
-                    const field = document.getElementById(id);
-                    if (field) field.value = '';
-                });
-            }
+    // Sign up function
+    async function signUp() {
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+
+      hideMessage('signup-message');
+
+      if (!email || !password) {
+        showMessage('signup-message', 'Please fill in all fields', true);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: email,
+          password: password
         });
 
-        // Password strength indicator
-        document.getElementById('regPassword')?.addEventListener('input', (e) => {
-            const password = e.target.value;
-            const strengthDisplay = document.getElementById('passwordStrength');
-            
-            if (password && strengthDisplay) {
-                const result = validatePasswordStrength(password);
-                strengthDisplay.className = `password-strength ${result.className}`;
-                SecureDOM.setTextContent(strengthDisplay, result.message);
-            } else if (strengthDisplay) {
-                SecureDOM.setTextContent(strengthDisplay, '');
-            }
-        });
-
-        // Navigation between forms
-        document.getElementById('showRegisterBtn')?.addEventListener('click', () => {
-            SecureDOM.hide(document.getElementById('loginSection'));
-            SecureDOM.show(document.getElementById('registerSection'));
-        });
-
-        document.getElementById('showLoginBtn')?.addEventListener('click', () => {
-            SecureDOM.hide(document.getElementById('registerSection'));
-            SecureDOM.show(document.getElementById('loginSection'));
-            // Clear registration form
-            document.getElementById('registerForm')?.reset();
-        });
-
-            // Dashboard functions
-            async function showDashboard(user) {
-                SecureDOM.hide(document.getElementById('loginSection'));
-                SecureDOM.hide(document.getElementById('registerSection'));
-                SecureDOM.show(document.getElementById('dashboardSection'));
-                
-                // Load dashboard data
-                await Promise.allSettled([
-                    loadHouseholdInfo(),
-                    loadAccounts(),
-                    loadMFAFactors()
-                ]);
-            }
-
-        async function loadHouseholdInfo() {
-            try {
-                if (!supabase) return;
-                
-                const { data, error } = await supabase.rpc('get_user_household_id');
-                
-                const householdInfo = document.getElementById('householdInfo');
-                if (!error && data && householdInfo) {
-                    const infoElement = SecureDOM.createElement('p', `Household ID: ${String(data).substring(0, 8)}...`);
-                    SecureDOM.replaceContent(householdInfo, infoElement);
-                } else if (householdInfo) {
-                    SecureDOM.setTextContent(householdInfo, 'Household information unavailable');
-                }
-            } catch (error) {
-                console.error('Error loading household info:', error);
-            }
-        }
-
-        async function loadAccounts() {
-            try {
-                if (!supabase) return;
-                
-                const { data, error } = await supabase
-                    .from('accounts')
-                    .select('account_id, account_name, account_type')
-                    .order('account_name');
-                
-                const accountsList = document.getElementById('accountsList');
-                if (!accountsList) return;
-                
-                if (!error && Array.isArray(data) && data.length > 0) {
-                    const fragment = document.createDocumentFragment();
-                    
-                    data.forEach(account => {
-                        if (account && typeof account === 'object') {
-                            const item = SecureDOM.createElement('div', 
-                                `${account.account_name || 'Unknown'} (${account.account_type || 'Unknown'})`,
-                                { 'class': 'account-item' }
-                            );
-                            fragment.appendChild(item);
-                        }
-                    });
-                    
-                    SecureDOM.replaceContent(accountsList, fragment);
-                } else {
-                    SecureDOM.setTextContent(accountsList, 'No accounts found');
-                }
-            } catch (error) {
-                console.error('Error loading accounts:', error);
-                const accountsList = document.getElementById('accountsList');
-                if (accountsList) {
-                    SecureDOM.setTextContent(accountsList, 'Error loading accounts');
-                }
-            }
-        }
-
-        // MFA factor deletion with confirmation
-        async function deleteMFAFactor(factorId) {
-            if (!factorId || typeof factorId !== 'string') return;
-            
-            if (!confirm('Are you sure you want to delete this MFA factor? This will reduce your account security.')) {
-                return;
-            }
-            
-            try {
-                if (!supabase) {
-                    displayError('Authentication service unavailable');
-                    return;
-                }
-                
-                const { error } = await supabase.auth.mfa.deleteFactor({ id: factorId });
-                
-                if (error) {
-                    displayError('Failed to delete MFA factor.');
-                    return;
-                }
-                
-                displaySuccess('MFA factor deleted successfully.');
-                await loadMFAFactors();
-                
-            } catch (error) {
-                console.error('MFA deletion error:', error);
-                displayError('Network error. Please try again.');
-            }
-        }
-
-        // Load MFA factors
-        async function loadMFAFactors() {
-            try {
-                if (!supabase) return;
-                
-                const { data, error } = await supabase.auth.mfa.listFactors();
-                
-                if (error) {
-                    console.error('MFA factors error:', error);
-                    return;
-                }
-                
-                displayMFAFactors(data?.factors || []);
-                
-            } catch (error) {
-                console.error('MFA factors network error:', error);
-            }
-        }
-
-        // Setup MFA button handler
-        document.getElementById('setupMfaButton')?.addEventListener('click', async () => {
-            try {
-                if (!supabase) {
-                    displayError('Authentication service unavailable');
-                    return;
-                }
-                
-                const { data, error } = await supabase.auth.mfa.enroll({
-                    factorType: 'totp'
-                });
-                
-                if (error) {
-                    displayError('Failed to setup MFA.');
-                    return;
-                }
-                
-                if (data?.totp?.qr_code) {
-                    displayQRCode(data.totp.qr_code);
-                }
-                
-            } catch (error) {
-                console.error('MFA setup error:', error);
-                displayError('MFA setup failed. Please try again.');
-            }
-        });
-
-        // Logout handler with cleanup
-        document.getElementById('logoutButton')?.addEventListener('click', async () => {
-            try {
-                if (supabase) {
-                    await supabase.auth.signOut();
-                }
-                
-                // Clear UI
-                SecureDOM.hide(document.getElementById('dashboardSection'));
-                SecureDOM.hide(document.getElementById('qrContainer'));
-                SecureDOM.hide(document.getElementById('mfaFactorsContainer'));
-                SecureDOM.show(document.getElementById('loginSection'));
-                
-                // Clear form data
-                ['loginForm', 'registerForm'].forEach(formId => {
-                    const form = document.getElementById(formId);
-                    if (form) form.reset();
-                });
-                
-                displaySuccess('Signed out successfully.');
-                
-            } catch (error) {
-                console.error('Logout error:', error);
-                displayError('Error during logout.');
-            }
-        });
-
-        // SECURITY: Clear sensitive form data on page unload
-        window.addEventListener('beforeunload', () => {
-            ['password', 'regPassword', 'confirmPassword'].forEach(id => {
-                const field = document.getElementById(id);
-                if (field) field.value = '';
-            });
-        });
-
-        // SECURITY: Detect and handle potential XSS attempts
-        window.addEventListener('error', (e) => {
-            console.error('JavaScript error detected:', e.error);
-            if (e.error?.message?.includes('script')) {
-                displayError('Security violation detected. Please refresh the page.');
-            }
-        });
-
-        }
-
-        // Initialize the entire application when DOM is loaded
-        initializeApp();
-        
-        } // End of initializeApp function
-        
-        // Start the application when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initializeApp);
+        if (error) {
+          showMessage('signup-message', error.message, true);
         } else {
-            initializeApp();
+          showMessage('signup-message', 'Account created successfully!');
+          // Clear form
+          document.getElementById('signup-email').value = '';
+          document.getElementById('signup-password').value = '';
         }
+      } catch (err) {
+        showMessage('signup-message', 'An error occurred during signup', true);
+      }
+    }
 
-        // SECURITY: Global error handling
-        window.addEventListener('error', (e) => {
-            console.error('JavaScript error detected:', e.error);
+    // Sign in function
+    async function signIn() {
+      const email = document.getElementById('signin-email').value;
+      const password = document.getElementById('signin-password').value;
+
+      hideMessage('signin-message');
+
+      if (!email || !password) {
+        showMessage('signin-message', 'Please fill in all fields', true);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: password
         });
 
-        console.log('🔐 Secure Budget Tracker loading...');
-    </script>
+        if (error) {
+          showMessage('signin-message', error.message, true);
+        } else {
+          showMessage('signin-message', 'Signed in successfully!');
+          // Clear form
+          document.getElementById('signin-password').value = '';
+        }
+      } catch (err) {
+        showMessage('signin-message', 'An error occurred during signin', true);
+      }
+    }
+
+    // Sign out function
+    async function signOut() {
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.error('Sign out error:', error);
+        }
+      } catch (err) {
+        console.error('Sign out failed:', err);
+      }
+    }
+
+    // Reset password function
+    async function resetPassword() {
+      const email = document.getElementById('reset-email').value;
+
+      hideMessage('reset-message');
+
+      if (!email) {
+        showMessage('reset-message', 'Please enter your email address', true);
+        return;
+      }
+
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: 'https://charles85298.github.io/budget-tracker/?page=change-password'
+        });
+
+        if (error) {
+          showMessage('reset-message', error.message, true);
+        } else {
+          showMessage('reset-message', 'Password reset email sent! Check your inbox and click the link to set a new password.');
+          document.getElementById('reset-email').value = '';
+        }
+      } catch (err) {
+        showMessage('reset-message', 'An error occurred while sending reset email', true);
+      }
+    }
+
+    // Toggle between sign in and password reset forms
+    function togglePasswordReset() {
+      const signinSection = document.getElementById('signin-section');
+      const resetSection = document.getElementById('reset-section');
+
+      if (resetSection.classList.contains('hide')) {
+        // Show reset form, hide sign in
+        signinSection.classList.add('hide');
+        resetSection.classList.remove('hide');
+        hideMessage('signin-message');
+      } else {
+        // Show sign in form, hide reset
+        resetSection.classList.add('hide');
+        signinSection.classList.remove('hide');
+        hideMessage('reset-message');
+      }
+    }
+
+    // Update password after recovery
+    async function updatePassword() {
+      const newPassword = document.getElementById('new-password').value;
+
+      hideMessage('new-password-message');
+
+      if (!newPassword) {
+        showMessage('new-password-message', 'Please enter a new password', true);
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        showMessage('new-password-message', 'Password must be at least 6 characters', true);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.auth.updateUser({ 
+          password: newPassword 
+        });
+
+        if (error) {
+          // Check if AAL2 (MFA) is required
+          if (error.message?.includes('AAL2') || error.message?.includes('MFA')) {
+            showMessage('new-password-message', 'MFA verification required to change password');
+            await initiatePasswordMFAChallenge(newPassword);
+          } else {
+            showMessage('new-password-message', error.message, true);
+          }
+        } else {
+          showMessage('new-password-message', 'Password updated successfully! Redirecting to login...');
+          document.getElementById('new-password').value = '';
+          
+          // Redirect back to main login page after successful password change
+          setTimeout(() => {
+            window.location.href = window.location.origin + window.location.pathname;
+          }, 2000);
+        }
+      } catch (err) {
+        showMessage('new-password-message', 'An error occurred while updating password', true);
+      }
+    }
+
+    // Initiate MFA challenge for password change
+    async function initiatePasswordMFAChallenge(password) {
+      try {
+        // Store password for after MFA verification
+        pendingPassword = password;
+        
+        // Get user's MFA factors
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (factorsError || !factors?.totp?.length) {
+          showMessage('new-password-message', 'No MFA factors found', true);
+          return;
+        }
+
+        // Use first verified TOTP factor
+        const totpFactor = factors.totp.find(f => f.status === 'verified');
+        if (!totpFactor) {
+          showMessage('new-password-message', 'No verified TOTP factor found', true);
+          return;
+        }
+
+        currentFactorId = totpFactor.id;
+
+        // Create MFA challenge
+        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+          factorId: currentFactorId
+        });
+
+        if (challengeError) {
+          showMessage('new-password-message', 'Failed to create MFA challenge: ' + challengeError.message, true);
+          return;
+        }
+
+        currentChallengeId = challenge.id;
+        
+        // Show MFA challenge form
+        document.getElementById('new-password-section').classList.add('hide');
+        document.getElementById('mfa-challenge-section').classList.remove('hide');
+        
+      } catch (error) {
+        showMessage('new-password-message', 'Error setting up MFA challenge', true);
+      }
+    }
+
+    // Verify MFA and update password
+    async function verifyMFAAndUpdatePassword() {
+      const code = document.getElementById('mfa-challenge-code').value;
+      
+      hideMessage('mfa-challenge-message');
+
+      if (!code || code.length !== 6) {
+        showMessage('mfa-challenge-message', 'Please enter a 6-digit code', true);
+        return;
+      }
+
+      if (!currentChallengeId || !currentFactorId || !pendingPassword) {
+        showMessage('mfa-challenge-message', 'Invalid challenge state', true);
+        return;
+      }
+
+      try {
+        // Verify MFA code
+        const { data, error: verifyError } = await supabase.auth.mfa.verify({
+          factorId: currentFactorId,
+          challengeId: currentChallengeId,
+          code: code
+        });
+
+        if (verifyError) {
+          showMessage('mfa-challenge-message', 'Invalid code: ' + verifyError.message, true);
+          return;
+        }
+
+        showMessage('mfa-challenge-message', 'MFA verified! Updating password...');
+
+        // Now try password update again (should work with AAL2)
+        const { data: updateData, error: updateError } = await supabase.auth.updateUser({ 
+          password: pendingPassword 
+        });
+
+        if (updateError) {
+          showMessage('mfa-challenge-message', 'Password update failed: ' + updateError.message, true);
+        } else {
+          showMessage('mfa-challenge-message', 'Password updated successfully! Redirecting to login...');
+          
+          // Clear stored values
+          currentChallengeId = null;
+          currentFactorId = null;
+          pendingPassword = null;
+          document.getElementById('mfa-challenge-code').value = '';
+          
+          // Redirect back to main login page
+          setTimeout(() => {
+            window.location.href = window.location.origin + window.location.pathname;
+          }, 2000);
+        }
+
+      } catch (error) {
+        showMessage('mfa-challenge-message', 'Error verifying MFA code', true);
+      }
+    }
+
+    // Listen for auth state changes
+    supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email || 'no user');
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        // Force user to set new password instead of just logging in
+        console.log('Password recovery detected - forcing password change');
+        updateStatus(session?.user || null, true); // true = isPasswordRecovery
+      } else {
+        updateStatus(session?.user || null, false);
+      }
+    });
+
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      updateStatus(session?.user || null);
+    });
+  </script>
 </body>
 </html>
