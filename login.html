@@ -1,522 +1,1093 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Simple Login Test</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    body { 
-      font-family: system-ui, Arial; 
-      max-width: 600px; 
-      margin: 2rem auto; 
-      padding: 1rem; 
-    }
-    .status {
-      font-size: 1.2em;
-      font-weight: bold;
-      padding: 1rem;
-      border-radius: 8px;
-      margin-bottom: 2rem;
-    }
-    .logged-in { 
-      background: #d4edda; 
-      color: #155724; 
-      border: 1px solid #c3e6cb;
-    }
-    .logged-out { 
-      background: #f8d7da; 
-      color: #721c24; 
-      border: 1px solid #f5c6cb;
-    }
-    .card { 
-      border: 1px solid #ddd; 
-      border-radius: 8px; 
-      padding: 1rem; 
-      margin: 1rem 0; 
-    }
-    .form-group { 
-      margin: 0.5rem 0; 
-    }
-    label { 
-      display: block; 
-      margin-bottom: 0.25rem; 
-    }
-    input { 
-      width: 100%; 
-      padding: 0.5rem; 
-      border: 1px solid #ccc; 
-      border-radius: 4px; 
-    }
-    button { 
-      background: #007bff; 
-      color: white; 
-      border: none; 
-      padding: 0.75rem 1rem; 
-      border-radius: 4px; 
-      cursor: pointer; 
-      margin: 0.5rem 0; 
-    }
-    button:hover { 
-      background: #0056b3; 
-    }
-    .hide { 
-      display: none; 
-    }
-    .message { 
-      padding: 0.5rem; 
-      margin: 0.5rem 0; 
-      border-radius: 4px; 
-    }
-    .success { 
-      background: #d4edda; 
-      color: #155724; 
-    }
-    .error { 
-      background: #f8d7da; 
-      color: #721c24; 
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.supabase.co;">
+    <meta name="robots" content="noindex, nofollow">
+    
+    <title>WisePath - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            height: 100%;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .container {
+            height: 100vh;
+            width: 100vw;
+            background-image: url('images/flag_locked_black.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 5vh;
+        }
+
+        .content-frame {
+            width: 621px;
+            height: 751px;
+            background: rgba(0, 20, 40, 0.1);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+            backdrop-filter: blur(2px);
+        }
+
+        .coin-logo {
+            width: 250px;
+            height: 250px;
+            margin-bottom: 30px;
+        }
+
+        .welcome-title {
+            font-size: 48px;
+            font-weight: 600;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+            -webkit-text-stroke: 1px #000000;
+            text-stroke: 1px #000000;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .welcome-subtitle {
+            font-size: 18px;
+            font-weight: 400;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .form-section {
+            display: none;
+            width: 100%;
+            max-width: 350px;
+        }
+
+        .form-section.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .form-input-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .form-input {
+            width: 100%;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 15px 15px 15px 50px;
+            font-size: 16px;
+            color: #333;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            background: rgba(255, 255, 255, 1);
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: #666;
+            font-weight: 400;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 20px;
+            height: 20px;
+            color: #666;
+            pointer-events: none;
+        }
+
+        .button-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .link-button {
+            background: none;
+            border: none;
+            color: #4da6ff;
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 14px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+            padding: 0;
+        }
+
+        .link-button:hover {
+            color: #66b3ff;
+        }
+
+        .btn-primary {
+            width: 120px;
+            height: 45px;
+            background: #0056b3;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 86, 179, 0.3);
+        }
+
+        .btn-primary:hover {
+            background: #004494;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 86, 179, 0.4);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            color: white;
+            width: 120px;
+            height: 45px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+        }
+
+        .btn-secondary:hover {
+            border-color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .error-message, .success-message, .info-message {
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 14px;
+            text-shadow: none;
+            display: none;
+        }
+
+        .error-message {
+            background: rgba(248, 215, 218, 0.9);
+            color: #721c24;
+            border: 1px solid rgba(245, 198, 203, 0.8);
+        }
+
+        .success-message {
+            background: rgba(212, 237, 218, 0.9);
+            color: #155724;
+            border: 1px solid rgba(195, 230, 203, 0.8);
+        }
+
+        .info-message {
+            background: rgba(209, 236, 241, 0.9);
+            color: #0c5460;
+            border: 1px solid rgba(180, 213, 220, 0.8);
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .qr-container {
+            text-align: center;
+            margin: 20px 0;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .manual-key {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 10px 0;
+            color: #333;
+        }
+
+        .form-text {
+            font-size: 14px;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .content-frame {
+                width: 90%;
+                max-width: 400px;
+                height: auto;
+                min-height: 600px;
+                padding: 30px 20px;
+                margin: 20px;
+            }
+
+            .coin-logo {
+                width: 200px;
+                height: 200px;
+                margin-bottom: 25px;
+            }
+
+            .welcome-title {
+                font-size: 36px;
+                margin-bottom: 12px;
+            }
+
+            .welcome-subtitle {
+                font-size: 16px;
+                margin-bottom: 30px;
+            }
+
+            .form-input {
+                height: 45px;
+                font-size: 15px;
+            }
+
+            .btn-primary {
+                width: 110px;
+                height: 42px;
+                font-size: 15px;
+            }
+
+            .btn-secondary {
+                width: 110px;
+                height: 42px;
+                font-size: 13px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .content-frame {
+                width: 95%;
+                padding: 25px 15px;
+                min-height: 550px;
+            }
+
+            .coin-logo {
+                width: 180px;
+                height: 180px;
+                margin-bottom: 20px;
+            }
+
+            .welcome-title {
+                font-size: 32px;
+                margin-bottom: 10px;
+            }
+
+            .welcome-subtitle {
+                font-size: 15px;
+                margin-bottom: 25px;
+            }
+
+            .form-input {
+                height: 42px;
+                font-size: 14px;
+                padding-left: 45px;
+            }
+
+            .input-icon {
+                width: 18px;
+                height: 18px;
+                left: 12px;
+            }
+
+            .btn-primary {
+                width: 100px;
+                height: 40px;
+                font-size: 14px;
+            }
+
+            .btn-secondary {
+                width: 100px;
+                height: 40px;
+                font-size: 12px;
+            }
+
+            .button-row {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
 </head>
 <body>
-  <h1>Simple Login Test</h1>
+    <div class="container">
+        <div class="content-frame">
+            <img src="images/mobile_login_icon.png" alt="WisePath Logo" class="coin-logo" loading="lazy" decoding="async">
+            
+            <h1 class="welcome-title">Welcome</h1>
+            <p class="welcome-subtitle">Please sign in to continue.</p>
 
-  <!-- Login Status Display -->
-  <div id="status" class="status logged-out">
-    Not signed in
-  </div>
+            <!-- Error/Success Message Display -->
+            <div id="message-display"></div>
 
-  <!-- Sign Up Form -->
-  <div class="card" id="signup-section">
-    <h2>Create Account</h2>
-    <div class="form-group">
-      <label>Email:</label>
-      <input type="email" id="signup-email" placeholder="you@example.com" />
+            <!-- Login Form -->
+            <div id="login-form" class="form-section active">
+                <form role="form" aria-labelledby="login-title" autocomplete="on" novalidate>
+                    <div class="form-input-container">
+                        <label for="email-input" class="sr-only">Email Address</label>
+                        <input 
+                            id="email-input" 
+                            type="email" 
+                            class="form-input" 
+                            placeholder="Email Address"
+                            autocomplete="username"
+                            required
+                            aria-describedby="email-error">
+                        <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
+                        </svg>
+                    </div>
+
+                    <div class="form-input-container">
+                        <label for="password-input" class="sr-only">Password</label>
+                        <input 
+                            id="password-input" 
+                            type="password" 
+                            class="form-input" 
+                            placeholder="Password"
+                            autocomplete="current-password"
+                            required
+                            aria-describedby="password-error">
+                        <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="currentColor" d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+                        </svg>
+                    </div>
+
+                    <div class="button-row">
+                        <button type="button" class="link-button" onclick="showPasswordReset()">Reset Password</button>
+                        <button type="submit" class="btn-primary">Sign In</button>
+                    </div>
+                </form>
+
+                <div style="text-align: center; margin-top: 20px;">
+                    <button type="button" class="link-button" onclick="showSignUp()">Don't have an account? Sign Up</button>
+                </div>
+            </div>
+
+            <!-- Sign Up Form -->
+            <div id="signup-form" class="form-section">
+                <h2 class="welcome-title" style="font-size: 36px;">Create Account</h2>
+                <p class="welcome-subtitle">Join WisePath today</p>
+
+                <form role="form" autocomplete="on" novalidate>
+                    <div class="form-input-container">
+                        <label for="signup-email" class="sr-only">Email Address</label>
+                        <input 
+                            id="signup-email" 
+                            type="email" 
+                            class="form-input" 
+                            placeholder="Email Address"
+                            autocomplete="email"
+                            required>
+                        <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
+                        </svg>
+                    </div>
+
+                    <div class="form-input-container">
+                        <label for="signup-password" class="sr-only">Password</label>
+                        <input 
+                            id="signup-password" 
+                            type="password" 
+                            class="form-input" 
+                            placeholder="Password"
+                            autocomplete="new-password"
+                            required>
+                        <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="currentColor" d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+                        </svg>
+                    </div>
+
+                    <div class="button-row">
+                        <button type="button" class="btn-secondary" onclick="showLogin()">Back</button>
+                        <button type="submit" class="btn-primary">Sign Up</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Password Reset Form -->
+            <div id="reset-form" class="form-section">
+                <h2 class="welcome-title" style="font-size: 36px;">Reset Password</h2>
+                <p class="welcome-subtitle">Enter your email to receive reset instructions</p>
+
+                <form role="form" autocomplete="on" novalidate>
+                    <div class="form-input-container">
+                        <label for="reset-email" class="sr-only">Email Address</label>
+                        <input 
+                            id="reset-email" 
+                            type="email" 
+                            class="form-input" 
+                            placeholder="Email Address"
+                            autocomplete="email"
+                            required>
+                        <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
+                        </svg>
+                    </div>
+
+                    <div class="button-row">
+                        <button type="button" class="btn-secondary" onclick="showLogin()">Back</button>
+                        <button type="submit" class="btn-primary">Send Reset</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- MFA Challenge Form -->
+            <div id="mfa-challenge-form" class="form-section">
+                <h2 class="welcome-title" style="font-size: 36px;">Enter Code</h2>
+                <p class="welcome-subtitle">Enter the 6-digit code from your authenticator app</p>
+
+                <form role="form" autocomplete="off" novalidate>
+                    <div class="form-input-container">
+                        <label for="mfa-code" class="sr-only">Authenticator Code</label>
+                        <input 
+                            id="mfa-code" 
+                            type="text" 
+                            class="form-input" 
+                            placeholder="123456"
+                            autocomplete="one-time-code"
+                            inputmode="numeric"
+                            pattern="[0-9]{6}"
+                            maxlength="6"
+                            required>
+                        <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="currentColor" d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10V11.5C15.4,11.5 16,12.4 16,13V16C16,17.4 15.4,18 14.8,18H9.2C8.6,18 8,17.4 8,16V13C8,12.4 8.6,11.5 9.2,11.5V10C9.2,8.6 10.6,7 12,7M12,8.2C11.2,8.2 10.5,8.7 10.5,10V11.5H13.5V10C13.5,8.7 12.8,8.2 12,8.2Z"/>
+                        </svg>
+                    </div>
+
+                    <div class="button-row">
+                        <button type="button" class="btn-secondary" onclick="cancelMFA()">Cancel</button>
+                        <button type="submit" class="btn-primary">Verify</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- MFA Enrollment Form -->
+            <div id="mfa-enrollment-form" class="form-section">
+                <h2 class="welcome-title" style="font-size: 32px;">Setup 2FA</h2>
+                <p class="welcome-subtitle">Scan QR code with your authenticator app</p>
+
+                <div id="qr-display-container" class="qr-container" style="display: none;"></div>
+                <p class="form-text" id="manual-key-text" style="display: none;">
+                    Or enter this key: <span class="manual-key" id="manual-key-display"></span>
+                </p>
+
+                <form role="form" autocomplete="off" novalidate>
+                    <div class="form-input-container">
+                        <label for="enrollment-code" class="sr-only">Verification Code</label>
+                        <input 
+                            id="enrollment-code" 
+                            type="text" 
+                            class="form-input" 
+                            placeholder="123456"
+                            maxlength="6"
+                            inputmode="numeric"
+                            pattern="[0-9]{6}"
+                            required>
+                        <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="currentColor" d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10V11.5C15.4,11.5 16,12.4 16,13V16C16,17.4 15.4,18 14.8,18H9.2C8.6,18 8,17.4 8,16V13C8,12.4 8.6,11.5 9.2,11.5V10C9.2,8.6 10.6,7 12,7M12,8.2C11.2,8.2 10.5,8.7 10.5,10V11.5H13.5V10C13.5,8.7 12.8,8.2 12,8.2Z"/>
+                        </svg>
+                    </div>
+
+                    <div class="button-row">
+                        <button type="button" class="btn-secondary" onclick="skipMFA()">Skip for now</button>
+                        <button type="submit" class="btn-primary">Enable 2FA</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- New Password Form (Password Recovery) -->
+            <div id="new-password-form" class="form-section">
+                <h2 class="welcome-title" style="font-size: 32px;">New Password</h2>
+                <p class="welcome-subtitle">Please set a new password</p>
+
+                <form role="form" autocomplete="on" novalidate>
+                    <div class="form-input-container">
+                        <label for="new-password" class="sr-only">New Password</label>
+                        <input 
+                            id="new-password" 
+                            type="password" 
+                            class="form-input" 
+                            placeholder="New Password"
+                            autocomplete="new-password"
+                            required>
+                        <svg class="input-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="currentColor" d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+                        </svg>
+                    </div>
+
+                    <div class="button-row" style="justify-content: center;">
+                        <button type="submit" class="btn-primary">Update Password</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
-    <div class="form-group">
-      <label>Password:</label>
-      <input type="password" id="signup-password" placeholder="Password" />
-    </div>
-    <button onclick="signUp()">Sign Up</button>
-    <div id="signup-message" class="message hide"></div>
-  </div>
 
-  <!-- Sign In Form -->
-  <div class="card" id="signin-section">
-    <h2>Sign In</h2>
-    <div class="form-group">
-      <label>Email:</label>
-      <input type="email" id="signin-email" placeholder="you@example.com" />
-    </div>
-    <div class="form-group">
-      <label>Password:</label>
-      <input type="password" id="signin-password" placeholder="Password" />
-    </div>
-    <button onclick="signIn()">Sign In</button>
-    <button onclick="togglePasswordReset()" style="background: #6c757d;">Forgot Password?</button>
-    <div id="signin-message" class="message hide"></div>
-  </div>
+    <script type="module">
+        // Import Supabase client
+        import { supabase } from './supabaseClient.js';
 
-  <!-- Password Reset Form (hidden by default) -->
-  <div class="card hide" id="reset-section">
-    <h2>Reset Password</h2>
-    <div class="form-group">
-      <label>Email:</label>
-      <input type="email" id="reset-email" placeholder="you@example.com" />
-    </div>
-    <button onclick="resetPassword()">Send Reset Email</button>
-    <button onclick="togglePasswordReset()" style="background: #6c757d;">Back to Sign In</button>
-    <div id="reset-message" class="message hide"></div>
-  </div>
+        // Global state management
+        let currentState = 'login';
+        let currentUser = null;
+        let enrollmentData = null;
+        let challengeData = null;
+        let pendingPasswordUpdate = null;
 
-  <!-- Force New Password Form (shown after password recovery) -->
-  <div class="card hide" id="new-password-section">
-    <h2>Set New Password</h2>
-    <p>You accessed your account via password reset. Please set a new password to continue.</p>
-    <div class="form-group">
-      <label>New Password:</label>
-      <input type="password" id="new-password" placeholder="Enter new password" />
-    </div>
-    <button onclick="updatePassword()">Set New Password</button>
-    <div id="new-password-message" class="message hide"></div>
-  </div>
+        // Rate limiting
+        const rateLimiter = {
+            attempts: {},
+            
+            canAttempt(action, email) {
+                const key = `${action}_${email}`;
+                const now = Date.now();
+                const attempts = this.attempts[key] || [];
+                
+                const recentAttempts = attempts.filter(time => now - time < 15 * 60 * 1000);
+                this.attempts[key] = recentAttempts;
+                
+                return recentAttempts.length < 5;
+            },
+            
+            recordAttempt(action, email) {
+                const key = `${action}_${email}`;
+                if (!this.attempts[key]) this.attempts[key] = [];
+                this.attempts[key].push(Date.now());
+            }
+        };
 
-  <!-- MFA Challenge for Password Change -->
-  <div class="card hide" id="mfa-challenge-section">
-    <h2>MFA Required</h2>
-    <p>Enter your 6-digit authenticator code to confirm password change.</p>
-    <div class="form-group">
-      <label>Authenticator Code:</label>
-      <input type="text" id="mfa-challenge-code" placeholder="123456" maxlength="6" />
-    </div>
-    <button onclick="verifyMFAAndUpdatePassword()">Verify & Update Password</button>
-    <div id="mfa-challenge-message" class="message hide"></div>
-  </div>
+        // UI State Management
+        function showState(stateName) {
+            const sections = document.querySelectorAll('.form-section');
+            sections.forEach(section => section.classList.remove('active'));
+            
+            const targetSection = document.getElementById(stateName);
+            if (targetSection) {
+                targetSection.classList.add('active');
+                currentState = stateName.replace('-form', '');
+            }
+        }
 
-  <!-- Sign Out Button (hidden when logged out) -->
-  <div class="card hide" id="signout-section">
-    <button onclick="signOut()">Sign Out</button>
-  </div>
+        // Navigation functions
+        window.showLogin = () => showState('login-form');
+        window.showSignUp = () => showState('signup-form');
+        window.showPasswordReset = () => showState('reset-form');
+        window.cancelMFA = () => {
+            challengeData = null;
+            showState('login-form');
+        };
+        window.skipMFA = () => {
+            enrollmentData = null;
+            redirectToMainApp();
+        };
 
-  <script type="module">
-    import { supabase } from './supabaseClient.js';
+        // Message display
+        function showMessage(message, type = 'error') {
+            const messageDisplay = document.getElementById('message-display');
+            messageDisplay.innerHTML = '';
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `${type}-message`;
+            messageDiv.textContent = message;
+            messageDiv.style.display = 'block';
+            
+            messageDisplay.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 5000);
+        }
 
-    // Make functions available globally
-    window.supabase = supabase;
-    window.signUp = signUp;
-    window.signIn = signIn;
-    window.signOut = signOut;
-    window.resetPassword = resetPassword;
-    window.togglePasswordReset = togglePasswordReset;
-    window.updatePassword = updatePassword;
-    window.verifyMFAAndUpdatePassword = verifyMFAAndUpdatePassword;
+        function clearMessages() {
+            const messageDisplay = document.getElementById('message-display');
+            messageDisplay.innerHTML = '';
+        }
 
-    // Store for MFA challenge
-    let currentChallengeId = null;
-    let currentFactorId = null;
-    let pendingPassword = null;
+        // Input validation
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email) && email.length <= 254;
+        }
 
-    // Update UI based on login status
-    function updateStatus(user, isPasswordRecovery = false) {
-      const statusEl = document.getElementById('status');
-      const signupSection = document.getElementById('signup-section');
-      const signinSection = document.getElementById('signin-section');
-      const signoutSection = document.getElementById('signout-section');
-      const resetSection = document.getElementById('reset-section');
-      const newPasswordSection = document.getElementById('new-password-section');
+        function validateMFACode(code) {
+            return /^\d{6}$/.test(code);
+        }
 
-      // Check if this is the change password page
-      const urlParams = new URLSearchParams(window.location.search);
-      const isChangePasswordPage = urlParams.get('page') === 'change-password';
+        function sanitizeInput(input) {
+            return input.trim().replace(/[<>'"&]/g, '');
+        }
 
-      if (isChangePasswordPage && user) {
-        // Show only password change form (Supabase docs approach)
-        statusEl.textContent = 'Set your new password';
-        statusEl.className = 'status logged-out';
-        signupSection.classList.add('hide');
-        signinSection.classList.add('hide');
-        signoutSection.classList.add('hide');
-        resetSection.classList.add('hide');
-        newPasswordSection.classList.remove('hide');
-      } else if (isPasswordRecovery) {
-        // Force password change after recovery (fallback)
-        statusEl.textContent = 'Password reset required - set new password';
-        statusEl.className = 'status logged-out';
-        signupSection.classList.add('hide');
-        signinSection.classList.add('hide');
-        signoutSection.classList.add('hide');
-        resetSection.classList.add('hide');
-        newPasswordSection.classList.remove('hide');
-      } else if (user) {
-        statusEl.textContent = `Logged in as: ${user.email}`;
-        statusEl.className = 'status logged-in';
-        signupSection.classList.add('hide');
-        signinSection.classList.add('hide');
-        signoutSection.classList.remove('hide');
-        resetSection.classList.add('hide');
-        newPasswordSection.classList.add('hide');
-      } else {
-        statusEl.textContent = 'Not signed in';
-        statusEl.className = 'status logged-out';
-        signupSection.classList.remove('hide');
-        signinSection.classList.remove('hide');
-        signoutSection.classList.add('hide');
-        resetSection.classList.add('hide');
-        newPasswordSection.classList.add('hide');
-      }
-    }
+        // Error handling
+        function handleAuthError(error) {
+            console.error('Auth error details:', error);
+            
+            const userMessages = {
+                'Invalid login credentials': 'Email or password is incorrect. Please try again.',
+                'Email not confirmed': 'Please check your email and click the confirmation link.',
+                'Too many requests': 'Too many attempts. Please wait 15 minutes before trying again.',
+                'User not found': 'No account found with this email address.',
+                'Weak password': 'Password must be at least 8 characters with uppercase, lowercase, and numbers.',
+                'Email rate limit exceeded': 'Too many emails sent. Please wait before requesting another.',
+                default: 'Something went wrong. Please try again or contact support.'
+            };
+            
+            const userMessage = userMessages[error.message] || userMessages.default;
+            showMessage(userMessage, 'error');
+        }
 
-    // Show message
-    function showMessage(elementId, message, isError = false) {
-      const el = document.getElementById(elementId);
-      el.textContent = message;
-      el.className = `message ${isError ? 'error' : 'success'}`;
-      el.classList.remove('hide');
-    }
+        // Authentication functions
+        async function handleLogin(event) {
+            event.preventDefault();
+            clearMessages();
 
-    // Hide message
-    function hideMessage(elementId) {
-      document.getElementById(elementId).classList.add('hide');
-    }
+            const email = sanitizeInput(document.getElementById('email-input').value);
+            const password = document.getElementById('password-input').value;
 
-    // Sign up function
-    async function signUp() {
-      const email = document.getElementById('signup-email').value;
-      const password = document.getElementById('signup-password').value;
+            if (!validateEmail(email)) {
+                showMessage('Please enter a valid email address', 'error');
+                return;
+            }
 
-      hideMessage('signup-message');
+            if (!rateLimiter.canAttempt('login', email)) {
+                showMessage('Too many attempts. Please wait 15 minutes.', 'error');
+                return;
+            }
 
-      if (!email || !password) {
-        showMessage('signup-message', 'Please fill in all fields', true);
-        return;
-      }
+            rateLimiter.recordAttempt('login', email);
 
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email: email,
-          password: password
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) {
+                    handleAuthError(error);
+                    return;
+                }
+
+                currentUser = data.user;
+                await checkAALAndRedirect(data.user);
+
+            } catch (err) {
+                console.error('Login error:', err);
+                showMessage('An error occurred during login', 'error');
+            }
+        }
+
+        async function handleSignUp(event) {
+            event.preventDefault();
+            clearMessages();
+
+            const email = sanitizeInput(document.getElementById('signup-email').value);
+            const password = document.getElementById('signup-password').value;
+
+            if (!validateEmail(email)) {
+                showMessage('Please enter a valid email address', 'error');
+                return;
+            }
+
+            if (password.length < 8) {
+                showMessage('Password must be at least 8 characters long', 'error');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password
+                });
+
+                if (error) {
+                    handleAuthError(error);
+                    return;
+                }
+
+                showMessage('Account created! Please check your email for verification.', 'success');
+                document.getElementById('signup-email').value = '';
+                document.getElementById('signup-password').value = '';
+                
+                setTimeout(() => showState('login-form'), 3000);
+
+            } catch (err) {
+                console.error('Signup error:', err);
+                showMessage('An error occurred during signup', 'error');
+            }
+        }
+
+        async function handlePasswordReset(event) {
+            event.preventDefault();
+            clearMessages();
+
+            const email = sanitizeInput(document.getElementById('reset-email').value);
+
+            if (!validateEmail(email)) {
+                showMessage('Please enter a valid email address', 'error');
+                return;
+            }
+
+            try {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: window.location.origin + '/login.html?recovery=true'
+                });
+
+                if (error) {
+                    handleAuthError(error);
+                    return;
+                }
+
+                showMessage('Password reset email sent! Check your inbox.', 'success');
+                document.getElementById('reset-email').value = '';
+
+            } catch (err) {
+                console.error('Password reset error:', err);
+                showMessage('An error occurred while sending reset email', 'error');
+            }
+        }
+
+        async function handleMFAChallenge(event) {
+            event.preventDefault();
+            clearMessages();
+
+            const code = document.getElementById('mfa-code').value;
+
+            if (!validateMFACode(code)) {
+                showMessage('Please enter a valid 6-digit code', 'error');
+                return;
+            }
+
+            if (!challengeData) {
+                showMessage('No active MFA challenge', 'error');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.mfa.verify({
+                    factorId: challengeData.factorId,
+                    challengeId: challengeData.challengeId,
+                    code: code
+                });
+
+                if (error) {
+                    showMessage('Invalid code: ' + error.message, 'error');
+                    return;
+                }
+
+                showMessage('MFA verified! Signing you in...', 'success');
+                challengeData = null;
+                document.getElementById('mfa-code').value = '';
+                
+                setTimeout(() => redirectToMainApp(), 1000);
+
+            } catch (error) {
+                console.error('MFA verification error:', error);
+                showMessage('Error verifying MFA code', 'error');
+            }
+        }
+
+        async function handleMFAEnrollment(event) {
+            event.preventDefault();
+            clearMessages();
+
+            const code = document.getElementById('enrollment-code').value;
+
+            if (!validateMFACode(code)) {
+                showMessage('Please enter a valid 6-digit code', 'error');
+                return;
+            }
+
+            if (!enrollmentData) {
+                showMessage('No enrollment in progress', 'error');
+                return;
+            }
+
+            try {
+                const challengeResponse = await supabase.auth.mfa.challenge({
+                    factorId: enrollmentData.id
+                });
+
+                if (challengeResponse.error) {
+                    showMessage('Failed to create challenge: ' + challengeResponse.error.message, 'error');
+                    return;
+                }
+
+                const verifyResponse = await supabase.auth.mfa.verify({
+                    factorId: enrollmentData.id,
+                    challengeId: challengeResponse.data.id,
+                    code: code
+                });
+
+                if (verifyResponse.error) {
+                    showMessage('Invalid code: ' + verifyResponse.error.message, 'error');
+                    return;
+                }
+
+                showMessage('2FA setup successful!', 'success');
+                enrollmentData = null;
+                document.getElementById('enrollment-code').value = '';
+                
+                setTimeout(() => redirectToMainApp(), 2000);
+
+            } catch (error) {
+                console.error('MFA enrollment error:', error);
+                showMessage('Error verifying MFA enrollment', 'error');
+            }
+        }
+
+        async function handleNewPassword(event) {
+            event.preventDefault();
+            clearMessages();
+
+            const newPassword = document.getElementById('new-password').value;
+
+            if (newPassword.length < 8) {
+                showMessage('Password must be at least 8 characters long', 'error');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.updateUser({ 
+                    password: newPassword 
+                });
+
+                if (error) {
+                    handleAuthError(error);
+                    return;
+                }
+
+                showMessage('Password updated successfully!', 'success');
+                document.getElementById('new-password').value = '';
+                
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+
+            } catch (err) {
+                console.error('Password update error:', err);
+                showMessage('An error occurred while updating password', 'error');
+            }
+        }
+
+        // AAL checking and MFA flow
+        async function checkAALAndRedirect(user) {
+            try {
+                const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+                
+                if (aalError) {
+                    console.error('AAL check error:', aalError);
+                    redirectToMainApp();
+                    return;
+                }
+
+                if (aalData.nextLevel === 'aal2' && aalData.nextLevel !== aalData.currentLevel) {
+                    await showMFAChallenge();
+                } else {
+                    // Check if user should enroll in MFA
+                    const { data: factors } = await supabase.auth.mfa.listFactors();
+                    const hasVerifiedMFA = [...(factors.totp || []), ...(factors.phone || [])].some(f => f.status === 'verified');
+                    
+                    if (!hasVerifiedMFA) {
+                        await offerMFAEnrollment();
+                    } else {
+                        redirectToMainApp();
+                    }
+                }
+            } catch (error) {
+                console.error('Error in AAL check:', error);
+                redirectToMainApp();
+            }
+        }
+
+        async function showMFAChallenge() {
+            try {
+                const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+                
+                if (factorsError || !factorsData?.totp?.length) {
+                    redirectToMainApp();
+                    return;
+                }
+
+                const verifiedFactor = factorsData.totp.find(f => f.status === 'verified');
+                if (!verifiedFactor) {
+                    redirectToMainApp();
+                    return;
+                }
+
+                const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+                    factorId: verifiedFactor.id
+                });
+
+                if (challengeError) {
+                    console.error('Failed to create MFA challenge:', challengeError);
+                    redirectToMainApp();
+                    return;
+                }
+
+                challengeData = {
+                    challengeId: challenge.id,
+                    factorId: verifiedFactor.id
+                };
+
+                showState('mfa-challenge-form');
+
+            } catch (error) {
+                console.error('Error showing MFA challenge:', error);
+                redirectToMainApp();
+            }
+        }
+
+        async function offerMFAEnrollment() {
+            try {
+                const { data, error } = await supabase.auth.mfa.enroll({
+                    factorType: 'totp',
+                });
+
+                if (error) {
+                    console.error('MFA enrollment error:', error);
+                    redirectToMainApp();
+                    return;
+                }
+
+                enrollmentData = data;
+
+                // Display QR code
+                const qrContainer = document.getElementById('qr-display-container');
+                qrContainer.innerHTML = '';
+                
+                const img = document.createElement('img');
+                img.src = data.totp.qr_code;
+                img.alt = 'MFA Setup QR Code';
+                img.style.maxWidth = '200px';
+                qrContainer.appendChild(img);
+                qrContainer.style.display = 'block';
+                
+                document.getElementById('manual-key-display').textContent = data.totp.secret;
+                document.getElementById('manual-key-text').style.display = 'block';
+
+                showState('mfa-enrollment-form');
+
+            } catch (error) {
+                console.error('Error starting MFA enrollment:', error);
+                redirectToMainApp();
+            }
+        }
+
+        function redirectToMainApp() {
+            window.location.href = 'dashboard.html';
+        }
+
+        // Event listeners
+        document.getElementById('login-form').querySelector('form').addEventListener('submit', handleLogin);
+        document.getElementById('signup-form').querySelector('form').addEventListener('submit', handleSignUp);
+        document.getElementById('reset-form').querySelector('form').addEventListener('submit', handlePasswordReset);
+        document.getElementById('mfa-challenge-form').querySelector('form').addEventListener('submit', handleMFAChallenge);
+        document.getElementById('mfa-enrollment-form').querySelector('form').addEventListener('submit', handleMFAEnrollment);
+        document.getElementById('new-password-form').querySelector('form').addEventListener('submit', handleNewPassword);
+
+        // Check for password recovery on page load
+        window.addEventListener('load', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (urlParams.get('recovery') === 'true') {
+                // Check if user is authenticated from password reset
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session?.user) {
+                    showState('new-password-form');
+                    return;
+                }
+            }
+            
+            // Check for existing session
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                await checkAALAndRedirect(session.user);
+            }
         });
 
-        if (error) {
-          showMessage('signup-message', error.message, true);
-        } else {
-          showMessage('signup-message', 'Account created successfully!');
-          // Clear form
-          document.getElementById('signup-email').value = '';
-          document.getElementById('signup-password').value = '';
-        }
-      } catch (err) {
-        showMessage('signup-message', 'An error occurred during signup', true);
-      }
-    }
-
-    // Sign in function
-    async function signIn() {
-      const email = document.getElementById('signin-email').value;
-      const password = document.getElementById('signin-password').value;
-
-      hideMessage('signin-message');
-
-      if (!email || !password) {
-        showMessage('signin-message', 'Please fill in all fields', true);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email,
-          password: password
+        // Auth state change listener
+        supabase.auth.onAuthStateChange((event, session) => {
+            console.log('Auth state changed:', event);
+            
+            if (event === 'SIGNED_OUT') {
+                currentUser = null;
+                challengeData = null;
+                enrollmentData = null;
+                showState('login-form');
+            }
         });
-
-        if (error) {
-          showMessage('signin-message', error.message, true);
-        } else {
-          showMessage('signin-message', 'Signed in successfully!');
-          // Clear form
-          document.getElementById('signin-password').value = '';
-        }
-      } catch (err) {
-        showMessage('signin-message', 'An error occurred during signin', true);
-      }
-    }
-
-    // Sign out function
-    async function signOut() {
-      try {
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-          console.error('Sign out error:', error);
-        }
-      } catch (err) {
-        console.error('Sign out failed:', err);
-      }
-    }
-
-    // Reset password function
-    async function resetPassword() {
-      const email = document.getElementById('reset-email').value;
-
-      hideMessage('reset-message');
-
-      if (!email) {
-        showMessage('reset-message', 'Please enter your email address', true);
-        return;
-      }
-
-      try {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: 'https://charles85298.github.io/budget-tracker/?page=change-password'
-        });
-
-        if (error) {
-          showMessage('reset-message', error.message, true);
-        } else {
-          showMessage('reset-message', 'Password reset email sent! Check your inbox and click the link to set a new password.');
-          document.getElementById('reset-email').value = '';
-        }
-      } catch (err) {
-        showMessage('reset-message', 'An error occurred while sending reset email', true);
-      }
-    }
-
-    // Toggle between sign in and password reset forms
-    function togglePasswordReset() {
-      const signinSection = document.getElementById('signin-section');
-      const resetSection = document.getElementById('reset-section');
-
-      if (resetSection.classList.contains('hide')) {
-        // Show reset form, hide sign in
-        signinSection.classList.add('hide');
-        resetSection.classList.remove('hide');
-        hideMessage('signin-message');
-      } else {
-        // Show sign in form, hide reset
-        resetSection.classList.add('hide');
-        signinSection.classList.remove('hide');
-        hideMessage('reset-message');
-      }
-    }
-
-    // Update password after recovery
-    async function updatePassword() {
-      const newPassword = document.getElementById('new-password').value;
-
-      hideMessage('new-password-message');
-
-      if (!newPassword) {
-        showMessage('new-password-message', 'Please enter a new password', true);
-        return;
-      }
-
-      if (newPassword.length < 6) {
-        showMessage('new-password-message', 'Password must be at least 6 characters', true);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.auth.updateUser({ 
-          password: newPassword 
-        });
-
-        if (error) {
-          // Check if AAL2 (MFA) is required
-          if (error.message?.includes('AAL2') || error.message?.includes('MFA')) {
-            showMessage('new-password-message', 'MFA verification required to change password');
-            await initiatePasswordMFAChallenge(newPassword);
-          } else {
-            showMessage('new-password-message', error.message, true);
-          }
-        } else {
-          showMessage('new-password-message', 'Password updated successfully! Redirecting to login...');
-          document.getElementById('new-password').value = '';
-          
-          // Redirect back to main login page after successful password change
-          setTimeout(() => {
-            window.location.href = window.location.origin + window.location.pathname;
-          }, 2000);
-        }
-      } catch (err) {
-        showMessage('new-password-message', 'An error occurred while updating password', true);
-      }
-    }
-
-    // Initiate MFA challenge for password change
-    async function initiatePasswordMFAChallenge(password) {
-      try {
-        // Store password for after MFA verification
-        pendingPassword = password;
-        
-        // Get user's MFA factors
-        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
-        if (factorsError || !factors?.totp?.length) {
-          showMessage('new-password-message', 'No MFA factors found', true);
-          return;
-        }
-
-        // Use first verified TOTP factor
-        const totpFactor = factors.totp.find(f => f.status === 'verified');
-        if (!totpFactor) {
-          showMessage('new-password-message', 'No verified TOTP factor found', true);
-          return;
-        }
-
-        currentFactorId = totpFactor.id;
-
-        // Create MFA challenge
-        const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
-          factorId: currentFactorId
-        });
-
-        if (challengeError) {
-          showMessage('new-password-message', 'Failed to create MFA challenge: ' + challengeError.message, true);
-          return;
-        }
-
-        currentChallengeId = challenge.id;
-        
-        // Show MFA challenge form
-        document.getElementById('new-password-section').classList.add('hide');
-        document.getElementById('mfa-challenge-section').classList.remove('hide');
-        
-      } catch (error) {
-        showMessage('new-password-message', 'Error setting up MFA challenge', true);
-      }
-    }
-
-    // Verify MFA and update password
-    async function verifyMFAAndUpdatePassword() {
-      const code = document.getElementById('mfa-challenge-code').value;
-      
-      hideMessage('mfa-challenge-message');
-
-      if (!code || code.length !== 6) {
-        showMessage('mfa-challenge-message', 'Please enter a 6-digit code', true);
-        return;
-      }
-
-      if (!currentChallengeId || !currentFactorId || !pendingPassword) {
-        showMessage('mfa-challenge-message', 'Invalid challenge state', true);
-        return;
-      }
-
-      try {
-        // Verify MFA code
-        const { data, error: verifyError } = await supabase.auth.mfa.verify({
-          factorId: currentFactorId,
-          challengeId: currentChallengeId,
-          code: code
-        });
-
-        if (verifyError) {
-          showMessage('mfa-challenge-message', 'Invalid code: ' + verifyError.message, true);
-          return;
-        }
-
-        showMessage('mfa-challenge-message', 'MFA verified! Updating password...');
-
-        // Now try password update again (should work with AAL2)
-        const { data: updateData, error: updateError } = await supabase.auth.updateUser({ 
-          password: pendingPassword 
-        });
-
-        if (updateError) {
-          showMessage('mfa-challenge-message', 'Password update failed: ' + updateError.message, true);
-        } else {
-          showMessage('mfa-challenge-message', 'Password updated successfully! Redirecting to login...');
-          
-          // Clear stored values
-          currentChallengeId = null;
-          currentFactorId = null;
-          pendingPassword = null;
-          document.getElementById('mfa-challenge-code').value = '';
-          
-          // Redirect back to main login page
-          setTimeout(() => {
-            window.location.href = window.location.origin + window.location.pathname;
-          }, 2000);
-        }
-
-      } catch (error) {
-        showMessage('mfa-challenge-message', 'Error verifying MFA code', true);
-      }
-    }
-
-    // Listen for auth state changes
-    supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email || 'no user');
-      
-      if (event === 'PASSWORD_RECOVERY') {
-        // Force user to set new password instead of just logging in
-        console.log('Password recovery detected - forcing password change');
-        updateStatus(session?.user || null, true); // true = isPasswordRecovery
-      } else {
-        updateStatus(session?.user || null, false);
-      }
-    });
-
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      updateStatus(session?.user || null);
-    });
-  </script>
+    </script>
 </body>
 </html>
