@@ -8,7 +8,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="X-Frame-Options" content="DENY">
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://*.supabase.co;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data:; connect-src 'self' https://*.supabase.co;">
     <meta name="robots" content="noindex, nofollow">
     
     <title>WisePath - Login</title>
@@ -60,7 +60,6 @@
             font-size: 48px;
             font-weight: 600;
             color: white;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
             -webkit-text-stroke: 1px #000000;
             text-stroke: 1px #000000;
             text-align: center;
@@ -71,7 +70,6 @@
             font-size: 18px;
             font-weight: 400;
             color: white;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
             text-align: center;
             margin-bottom: 40px;
         }
@@ -143,7 +141,6 @@
             text-decoration: underline;
             cursor: pointer;
             font-size: 14px;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
             padding: 0;
         }
 
@@ -162,13 +159,11 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 86, 179, 0.3);
         }
 
         .btn-primary:hover {
             background: #004494;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 86, 179, 0.4);
         }
 
         .btn-primary:active {
@@ -192,7 +187,6 @@
             font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
         }
 
         .btn-secondary:hover {
@@ -266,7 +260,6 @@
         .form-text {
             font-size: 14px;
             color: white;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
             text-align: center;
             margin: 10px 0;
         }
