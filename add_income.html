@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Income</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: white;
+            padding: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .header h1 {
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            color: #64748b;
+        }
+        
+        .version-content {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+        
+        .form-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .form-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-header h2 {
+            color: #0f172a;
+        }
+        
+        .form-grid {
+            display: grid;
+            gap: 1.5rem;
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .form-section {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #e2e8f0;
+        }
+        
+        .form-section.basic {
+            border-left-color: #3b82f6;
+        }
+        
+        .form-section.planning {
+            border-left-color: #10b981;
+        }
+        
+        .form-section.advanced {
+            border-left-color: #f59e0b;
+        }
+        
+        .form-section h3 {
+            color: #374151;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+        }
+        
+        .field-group {
+            margin-bottom: 1rem;
+        }
+        
+        .field-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .required {
+            color: #dc2626;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .mock-input {
+            background: #f9fafb;
+            color: #6b7280;
+            border-style: dashed;
+        }
+        
+        .submit-button {
+            width: 100%;
+            padding: 1rem;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 1.5rem;
+        }
+        
+        .submit-button:hover {
+            background: #2563eb;
+        }
+        
+        .tabs-detailed {
+            display: flex;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 1.5rem;
+        }
+        
+        .detail-tab {
+            padding: 0.75rem 1rem;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6b7280;
+        }
+        
+        .detail-tab.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .feature-hint {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            color: #1d4ed8;
+        }
+         .automation {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            color: #1d4ed8;
+        }
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .tabs-detailed {
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Add Income</h1>
+        <p>Enter income details</p>
+    </div>
+    
+    <div class="version-content">
+        <div class="form-card">
+            <div class="form-header">
+                <h2>Income Details</h2>
+            </div>
+            
+            <div class="tabs-detailed">
+                <button class="detail-tab active" onclick="showDetailTab('basic-tab')">Basic Info</button>
+                <button class="detail-tab" onclick="showDetailTab('deposit-tab')">Banking Info</button>
+		<button class="detail-tab" onclick="showDetailTab('amounts-tab')">Amount Details</button>
+                <button class="detail-tab" onclick="showDetailTab('comments-tab')">Comments</button>
+		<button class="detail-tab" onclick="showDetailTab('automation-tab')">Automation</button>
+            </div>
+            
+            <div id="basic-tab" class="tab-content active">
+                <div class="form-grid">
+                    <div class="form-section basic">
+                        <h3>👤 Employment Details</h3>
+                        <div class="field-group">
+                            <label>Payee <span class="required">*</span></label>
+                            <select class="mock-input">
+                                <option>Charlie</option>
+                                <option>Jen</option>
+                                <option>+ Add New Person</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label>Employer <span class="required">*</span></label>
+                            <input class="mock-input" placeholder="Acme Corporation">
+                        </div>
+                        <div class="field-group">
+                            <label>Start Date <span class="required">*</span></label>
+                            <input type="date" class="mock-input" placeholder="2024-01-15">
+                        </div>
+                    </div>
+                    
+                    <div class="form-section planning">
+                        <h3>📅 Pay Schedule</h3>
+                        <div class="field-group">
+                            <label>Frequency <span class="required">*</span></label>
+                            <select class="mock-input">
+                                <option>Weekly</option>
+                                <option>Bi-Weekly</option>
+                                <option>Bi-Monthly (15th & 30th)</option>
+                                <option>Monthly</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label>Pay Day of Month <span class="required">*</span></label>
+                            <select class="mock-input">
+                                <option>15th</option>
+                                <option>30th</option>
+                                <option>1st</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label>Deposit Account <span class="required">*</span></label>
+                            <select class="mock-input">
+                                <option>💰 Primary Checking</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+ 	<div id="deposit-tab" class="tab-content">
+                <div class="form-grid">
+                    <div class="form-section basic">
+                        <div class="field-group">
+                            <label>Deposit Account <span class="required">*</span></label>
+                            <select class="mock-input">
+                                <option>💰 Primary Checking</option>
+                            </select>
+                        </div> 
+			<h3>💵 User Input Fields</h3>
+                        <div class="field-group">
+                            <label>Banking details <span class="required">*</span></label>
+                            <input class="mock-input" placeholder="add details">
+                            <small>setup banking</small>
+                        </div>
+
+                    </div>
+                    
+                    <div class="form-section planning">
+                        <h3>🎯 Smart Assignment</h3>
+                        <div class="field-group">
+                            <label>Income Type <span class="required">*</span></label>
+                            <select class="mock-input">
+                                <option>Regular</option>
+                                <option>Bonus</option>
+                                <option>Overtime</option>
+                                <option>Vacation Pay</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label>Paycheck Assignment <span class="required">*</span></label>
+                            <select class="mock-input">
+                                <option>C1 (Charlie's 1st paycheck this month)</option>
+                                <option>C2 (Charlie's 2nd paycheck this month)</option>
+                                <option>J1 (Jen's 1st paycheck this month)</option>
+                                <option>J2 (Jen's 2nd paycheck this month)</option>
+                            </select>
+                            <small>Based on selected payee + month counter</small>
+                        </div>
+                    </div>
+                </div>
+	    </div>
+            <div id="amounts-tab" class="tab-content">
+                <div class="form-grid">
+                    <div class="form-section basic">
+                        <h3>💵 User Input Fields</h3>
+                        <div class="field-group">
+                            <label>Gross Amount <span class="required">*</span></label>
+                            <input class="mock-input" placeholder="$2,500.00">
+                            <small>Amount before taxes/deductions</small>
+                        </div>
+                        <div class="field-group">
+                            <label>Net Amount <span class="required">*</span></label>
+                            <input class="mock-input" placeholder="$1,875.00">
+                            <small>Take-home pay after deductions</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section planning">
+                        <h3>🎯 Smart Assignment</h3>
+                        <div class="field-group">
+                            <label>Income Type <span class="required">*</span></label>
+                            <select class="mock-input">
+                                <option>Regular</option>
+                                <option>Bonus</option>
+                                <option>Overtime</option>
+                                <option>Vacation Pay</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label>Paycheck Assignment <span class="required">*</span></label>
+                            <select class="mock-input">
+                                <option>C1 (Charlie's 1st paycheck this month)</option>
+                                <option>C2 (Charlie's 2nd paycheck this month)</option>
+                                <option>J1 (Jen's 1st paycheck this month)</option>
+                                <option>J2 (Jen's 2nd paycheck this month)</option>
+                            </select>
+                            <small>Based on selected payee + month counter</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="feature-hint">
+                    ✅ Clean Input: Users only enter Gross + Net. System automatically manages Original + Current for change tracking behind the scenes.
+                </div>
+            </div>
+
+                        <div id="comments-tab" class="tab-content">
+                <div class="form-grid">
+                    <div class="form-section advanced">
+                        <h3>📝 Notes</h3>
+                        <div class="field-group">
+                            <label>Notes <span class="required">*</span></label>
+                            <textarea class="mock-input" rows="3" placeholder="Add addtional details about this income..."></textarea>
+                            <small>Required field for additional information</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+                        
+            <div id="automation-tab" class="tab-content">
+                <div class="form-grid">
+                    <div class="form-section advanced">
+                        <h3>📅 Automation Details</h3>
+                        <div style="background: #f3f4f6; padding: 1rem; border-radius: 6px; color: #6b7280; font-size: 0.875rem; text-align: center;">
+                            <div><em>Automation details are configured in Basic Info tab</em></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="submit-button">💾 Add Income</button>
+            
+            <div class="feature-hint">
+                ⚠️ <strong>Database Update Needed:</strong><br>
+                • Add <code>payee TEXT NOT NULL</code> - enables proper person-based counter system (C1, C2, J1, J2)<br>
+                • Using existing <code>notes</code> field for additional comments
+            </div>
+            <div class="automation">
+                ⚠️ <strong>Do you want to create scheduled income?</strong><br>
+                • From <code>Frequecy</code> - Income will be created from <code>Start Date </code> - through <code>end of year</code>)<br>
+                
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showDetailTab(tabId) {
+            // Hide all tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all detail tabs
+            document.querySelectorAll('.detail-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabId).classList.add('active');
+            
+            // Add active class to selected tab
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
